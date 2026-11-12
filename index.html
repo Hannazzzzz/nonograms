@@ -511,15 +511,16 @@ function generateBest(R, C, seeds) {
     P.cols.forEach((clue, c) => {
       const d = document.createElement("div");
       d.className = "cclue";
-      d.setAttribute("aria-label", `Column ${c + 1}: ${clue.join(", ")}`);
-      clue.forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      // An empty line shows the clue 0.
+      d.setAttribute("aria-label", `Column ${c + 1}: ${norm(clue).join(", ")}`);
+      norm(clue).forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
       board.appendChild(d); colClueEls.push(d);
     });
     for (let r = 0; r < R; r++) {
       const d = document.createElement("div");
       d.className = "rclue";
-      d.setAttribute("aria-label", `Row ${r + 1}: ${P.rows[r].join(", ")}`);
-      P.rows[r].forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      d.setAttribute("aria-label", `Row ${r + 1}: ${norm(P.rows[r]).join(", ")}`);
+      norm(P.rows[r]).forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
       board.appendChild(d); rowClueEls.push(d);
       cellEls.push([]);
       for (let c = 0; c < C; c++) {
@@ -1045,9 +1046,13 @@ function generateBest(R, C, seeds) {
   }
   function newPuzzle() {
     const p = generateBest(size, size, randomSeeds(6)) || generateBest(size, size, randomSeeds(12));
-    if (!p) { showView("play"); setStatus("Couldn't make a puzzle this time. Try again.", "bad"); return; }
+    if (!p) {
+      if (!P) openPuzzle(PUZZLES[0].id); // nothing open yet (first visit): fall back to the built-in puzzle
+      showView("play"); setStatus("Couldn't make a puzzle this time. Try again.", "bad"); return;
+    }
     if (P) dropIfUntouched(P.id);
-    const number = Math.max(0, ...allPuzzles().map(q => q.number || 0)) + 1;
+    // Patterns are numbered on their own, so a first-time visitor starts with Pattern No. 1.
+    const number = Math.max(0, ...generated.map(q => q.number || 0)) + 1;
     const id = "gen-" + Date.now().toString(36) + randomSeeds(1)[0].toString(36).slice(0, 4);
     generated.push({ id, number, title: `Pattern No. ${number}`, created: Date.now(), rows: p.rows, cols: p.cols, solution: p.solution });
     saveGenerated();
@@ -1191,7 +1196,9 @@ function generateBest(R, C, seeds) {
 
   // ---------- start ----------
   renderSize();
-  openPuzzle(store.get(CUR_KEY) || PUZZLES[0].id);
+  // Resume the puzzle you were on; a first visit (or a puzzle that no longer exists) starts a new random one.
+  const cur = store.get(CUR_KEY);
+  if (cur && findPuzzle(cur)) openPuzzle(cur); else newPuzzle();
 })();
 </script>
 
