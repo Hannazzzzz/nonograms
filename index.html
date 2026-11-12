@@ -54,15 +54,18 @@ body {
   background: var(--bg); color: var(--fg); font-family: var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 24px 40px;
+  padding-block: 16px 40px;
 }
-.wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-.view { display: flex; flex-direction: column; gap: 18px; }
-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.view { display: flex; flex-direction: column; gap: 14px; }
+/* Title and puzzle bar share one row when there is room, to leave more height for the board. */
+.side { display: flex; flex-direction: column; gap: 14px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+header { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .meta { font-family: var(--font-clue); font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 
-.navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; }
@@ -206,12 +209,39 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
 .hremove { flex: none; font-size: 0.82rem; min-height: 32px; padding: 4px 10px; border-color: var(--line); color: var(--muted); }
 .empty { color: var(--muted); text-align: center; padding: 28px 0; margin: 0; }
 
+/* Landscape (iPad landscape, wide windows): controls move to a column beside the board,
+   so the board can use the full screen height. */
+@media (orientation: landscape) and (min-width: 900px) {
+  body { padding-block: 16px 24px; }
+  .wrap {
+    max-width: 1400px; display: grid; grid-template-columns: 232px minmax(0, 1fr);
+    column-gap: 28px; row-gap: 14px; align-items: start;
+  }
+  .side { grid-column: 1; grid-row: 1; }
+  #playView, #historyView { grid-column: 2; grid-row: 1; }
+  .top { flex-direction: column; align-items: stretch; }
+  h1 { font-size: 1.35rem; }
+  .navbar .spacer { display: none; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar .spacer { display: none; }
+  #modeSeg { flex-direction: column; }
+  #modeSeg button { justify-content: flex-start; }
+  #modeSeg button + button { border-left: 0; border-top: 1px solid var(--line-strong); }
+  .actions { flex-direction: column; }
+  .actions button { justify-content: center; }
+  .legend { flex-direction: column; }
+  .legend > span { display: block; white-space: normal; }
+  .legend > span > .swatch, .legend > span > .xmark, .legend > span > .dot { margin-right: 6px; vertical-align: -1px; }
+}
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 
 <div class="wrap">
+  <div class="side" id="side">
+  <div class="top">
   <header>
     <h1>Hanna's Nonograms</h1>
     <span class="meta" id="meta"></span>
@@ -228,8 +258,7 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
     <span class="spacer"></span>
     <button id="historyBtn">History</button>
   </nav>
-
-  <section class="view" id="playView">
+  </div>
     <div class="toolbar" role="toolbar" aria-label="Puzzle controls">
       <div class="seg" role="group" aria-label="Mode" id="modeSeg" hidden>
         <button data-mode="1" aria-pressed="true"><span class="swatch" aria-hidden="true"></span> Fill</button>
@@ -251,6 +280,9 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
       </div>
     </div>
 
+  </div>
+
+  <section class="view" id="playView">
     <div class="board-holder" id="holder">
       <div class="board" id="board" aria-label="Nonogram grid"></div>
     </div>
@@ -540,9 +572,8 @@ function generateBest(R, C, seeds) {
   }
 
   // ---------- sizing ----------
-  // Cells use the available width (up to 56px). Above the old 34px size they only grow while the
-  // whole board still fits on screen without scrolling, so large screens (iPad portrait) get a
-  // bigger board and smaller windows keep the previous size.
+  // Cells are as big as possible (up to 56px) while the whole board, clues included, fits on
+  // screen without scrolling or zooming, in both width and height.
   function layout() {
     if (!P) return;
     const holder = document.getElementById("holder");
@@ -551,14 +582,14 @@ function generateBest(R, C, seeds) {
     const rowW = fs => Math.ceil(Math.max(...P.rows.map(cl =>
       cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * 0.45 * fs)) + 10);
     const fsOf = cell => Math.min(20, Math.max(9, Math.round(cell * 0.5)));
-    const H = window.innerHeight - (holder.getBoundingClientRect().top + window.scrollY) - 16;
+    // Visible height. On iPad Safari innerHeight grows when the toolbars hide while scrolling;
+    // clientHeight stays at the smaller, toolbars-shown height, so the board doesn't jump.
+    const vh = Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight);
+    const H = vh - (holder.getBoundingClientRect().top + window.scrollY) - 16;
     const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + 8) + R * cell <= H;
     const fitsWidth = (cell, w) => rowW(fsOf(cell)) + C * cell + 4 <= w;
-    // Previous size: up to 34px within a 640px column. Never go below it.
-    let base = 34;
-    while (base > 12 && !fitsWidth(base, Math.min(W, 640))) base--;
     let cell = 56;
-    while (cell > base && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
+    while (cell > 12 && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
     const fs = fsOf(cell), rowClueW = rowW(fs);
     cell = Math.max(12, cell);
     const colClueH = Math.ceil(maxCol * fs * 1.2 + 8);
@@ -568,6 +599,8 @@ function generateBest(R, C, seeds) {
     board.style.gridTemplateRows = `${colClueH}px repeat(${R}, ${cell}px)`;
   }
   window.addEventListener("resize", layout);
+  // Rotating an iPad can report the new size a moment late, so lay out again once it has settled.
+  window.addEventListener("orientationchange", () => { requestAnimationFrame(layout); setTimeout(layout, 400); });
 
   // ---------- rendering ----------
   function runs(arr) {
@@ -701,7 +734,14 @@ function generateBest(R, C, seeds) {
       if (undoStack.length > 500) undoStack.shift();
     }
     stroke = null;
-    if (checkSolved()) setSolved(true);
+    if (checkSolved()) {
+      setSolved(true);
+      // The board fills the screen, so the banner sits just below it: scroll it into view once the picture is revealed.
+      setTimeout(() => {
+        const b = document.getElementById("banner");
+        if (!b.hidden && b.getBoundingClientRect().bottom > window.innerHeight) b.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 900);
+    }
     if (changed) save();
     undoBtn.disabled = undoStack.length === 0 || solved;
   }
@@ -1064,11 +1104,13 @@ function generateBest(R, C, seeds) {
 
   // ---------- history ----------
   let view = "play", filter = "all";
+  const toolbarEl = document.querySelector(".toolbar");
   const playView = document.getElementById("playView"), historyView = document.getElementById("historyView");
   const historyBtn = document.getElementById("historyBtn");
   function showView(v) {
     view = v;
     playView.hidden = v !== "play";
+    toolbarEl.hidden = v !== "play"; // the toolbar sits beside the board in landscape
     historyView.hidden = v !== "history";
     historyBtn.setAttribute("aria-pressed", String(v === "history"));
     if (v === "history") { highlight(null); renderHistory(); }
