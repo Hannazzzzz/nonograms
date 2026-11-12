@@ -27,6 +27,7 @@
   --ok: #12c94f;
   --ok-text: #0f7a35;
   --error-soft: rgba(196, 57, 43, 0.18);
+  --hint: #2f7fc6;
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
   --font-clue: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -39,6 +40,7 @@
     --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
     --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
     --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
+    --hint: #6cb4f0;
     color-scheme: dark;
   }
 }
@@ -47,6 +49,7 @@
   --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
   --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
   --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
+  --hint: #6cb4f0;
   color-scheme: dark;
 }
 html { height: 100%; }
@@ -133,6 +136,11 @@ button.danger { border-color: var(--error); color: var(--error); }
 .cell.er { border-right: 2px solid var(--line-strong); }
 .cell.eb { border-bottom: 2px solid var(--line-strong); }
 .cell.hl { background: color-mix(in srgb, var(--paper) 91%, var(--ink)); }
+/* Hint highlights: the line, the stretch it talks about, and the cells to mark */
+.cell.h-line { background: color-mix(in srgb, var(--paper) 85%, var(--hint)); }
+.cell.h-area { background: color-mix(in srgb, var(--paper) 68%, var(--hint)); }
+.cell.h-target { box-shadow: inset 0 0 0 3px var(--hint); }
+.cclue.h-line, .rclue.h-line { background: color-mix(in srgb, var(--paper) 78%, var(--hint)); border-radius: 4px; }
 .cell.k1 { background: color-mix(in srgb, var(--paper) 80%, var(--accent)); }
 .cell.k2 { background: color-mix(in srgb, var(--paper) 50%, var(--accent)); }
 .cell.k1::before, .cell.k2::before {
@@ -180,6 +188,25 @@ button.danger { border-color: var(--error); color: var(--error); }
 .help p + p { margin-top: 10px; }
 .help a { color: var(--ink); font-weight: 500; text-underline-offset: 3px; }
 kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--paper); }
+
+/* Hint panel */
+.hint {
+  width: 100%; max-width: 62ch; margin: 0 auto; box-sizing: border-box; background: var(--paper);
+  border: 1px solid var(--line); border-left: 4px solid var(--hint); border-radius: 10px;
+  padding: 10px 12px 12px 14px; transition: opacity 0.35s;
+}
+.hint.fading { opacity: 0; }
+.hint-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hint-title { font-family: var(--font-display); font-weight: 700; font-size: 1rem; }
+.hint-count { font-size: 0.82rem; color: var(--muted); flex: 1; }
+.hint-x { min-height: 32px; padding: 4px 10px; border-color: var(--line); color: var(--muted); }
+.hint-steps { margin: 8px 0 0; padding-left: 1.4em; line-height: 1.5; font-size: 0.95rem; }
+.hint-steps li + li { margin-top: 6px; }
+.hint-steps li.later { visibility: hidden; }
+.hint-steps ul { margin: 0; padding-left: 1.1em; list-style: disc; }
+.hint-steps ul li + li { margin-top: 2px; }
+.hint.stale .hint-steps { opacity: 0.45; }
+.hint-stale { margin: 8px 0 0; color: var(--fg); font-weight: 500; }
 
 /* History */
 .hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -274,6 +301,7 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
       <div class="actions">
         <button id="undo" disabled>Undo</button>
         <button id="check" title="Hold to show mistakes">Hold to check</button>
+        <button id="hintBtn" title="Hint (H)">Hint</button>
         <button id="clearMistakes">Clear lines with mistakes</button>
         <button id="clearCand">Clear candidates</button>
         <button id="reset">Reset</button>
@@ -287,6 +315,18 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
       <div class="board" id="board" aria-label="Nonogram grid"></div>
     </div>
 
+    <section class="hint" id="hint" aria-label="Hint" hidden>
+      <div class="hint-head">
+        <span class="hint-title">Hint</span>
+        <span class="hint-count" id="hintCount"></span>
+        <button id="hintNext">Next step</button>
+        <button id="hintNew" class="primary" hidden>New hint</button>
+        <button class="hint-x" id="hintClose" aria-label="Close hint">✕</button>
+      </div>
+      <p class="hint-stale" id="hintStale" hidden>The board has changed.</p>
+      <ol class="hint-steps" id="hintSteps" aria-live="polite"></ol>
+    </section>
+
     <div class="status" id="status" role="status" aria-live="polite"></div>
     <div class="solved-banner" id="banner" hidden>
       <h2 id="bannerTitle"></h2>
@@ -296,7 +336,7 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
 
     <section class="help">
       <h2>Keyboard</h2>
-      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
       <p><a href="https://activityworkshop.net/puzzlesgames/nonograms/tutorial.html" target="_blank" rel="noopener">How to solve a nonogram</a></p>
     </section>
   </section>
@@ -485,6 +525,298 @@ function generateBest(R, C, seeds) {
   return best;
 }
 
+// ---------- hints ----------
+// A hint explains one deduction in one line, in steps. It works from the player's marks:
+// fills, crosses, and blanks in a line that is already complete (those count as empty).
+
+// Every valid start of every block, given known cells (-1 unknown, 0 empty, 1 filled). null if none fit.
+function blockStarts(clue, known) {
+  const n = known.length, k = clue.length;
+  const zeros = new Int32Array(n + 1);
+  for (let i = 0; i < n; i++) zeros[i + 1] = zeros[i] + (known[i] === 0 ? 1 : 0);
+  const fillable = (i, len) => i + len <= n && zeros[i + len] - zeros[i] === 0;
+  const can = Array.from({ length: n + 2 }, () => new Uint8Array(k + 1));
+  const okEmpty = new Uint8Array(n + 2); okEmpty[n] = 1; okEmpty[n + 1] = 1;
+  for (let i = n - 1; i >= 0; i--) okEmpty[i] = okEmpty[i + 1] && known[i] !== 1 ? 1 : 0;
+  // A block ending at e (exclusive) must be followed by an empty cell, or the end of the line.
+  const after = (e, j) => e === n ? j === k - 1 : known[e] !== 1 && !!can[e + 1][j + 1];
+  for (let i = n + 1; i >= 0; i--) {
+    can[i][k] = i > n ? 1 : okEmpty[i];
+    if (i > n) continue;
+    for (let j = k - 1; j >= 0; j--) {
+      can[i][j] = (i < n && known[i] !== 1 && can[i + 1][j]) || (fillable(i, clue[j]) && after(i + clue[j], j)) ? 1 : 0;
+    }
+  }
+  if (!can[0][0]) return null;
+  const reach = Array.from({ length: n + 2 }, () => new Uint8Array(k + 1));
+  reach[0][0] = 1;
+  const starts = clue.map(() => []);
+  for (let i = 0; i <= n; i++) for (let j = 0; j <= k; j++) {
+    if (!reach[i][j]) continue;
+    if (i < n && known[i] !== 1 && can[i + 1][j]) reach[i + 1][j] = 1;
+    if (j < k && fillable(i, clue[j]) && after(i + clue[j], j)) {
+      starts[j].push(i);
+      const e = i + clue[j];
+      if (e < n) reach[e + 1][j + 1] = 1;
+    }
+  }
+  return starts;
+}
+
+// Player cells (0 blank, 1 filled, 2 crossed) as known values, plus where an empty comes from.
+// src: "x" crossed, "row"/"col" blank in a complete row/column.
+function hintKnown(rows, cols, cells) {
+  const R = rows.length, C = cols.length;
+  const k = cells.map(row => row.map(v => (v === 1 ? 1 : v === 2 ? 0 : -1)));
+  const src = cells.map(row => row.map(v => (v === 2 ? "x" : "")));
+  const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  for (let r = 0; r < R; r++) if (eq(clueOf(cells[r].map(v => v === 1)), rows[r]))
+    for (let c = 0; c < C; c++) if (k[r][c] === -1) { k[r][c] = 0; src[r][c] = "row"; }
+  for (let c = 0; c < C; c++) if (eq(clueOf(cells.map(row => row[c] === 1)), cols[c]))
+    for (let r = 0; r < R; r++) if (k[r][c] === -1) { k[r][c] = 0; src[r][c] = "col"; }
+  return { k, src };
+}
+
+const hintText = {
+  list(items) { return items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items[items.length - 1]; },
+  // "row 4", "rows 13 and 14", "rows 3, 5 and 7–9"
+  set(idx, unit) {
+    const s = [...new Set(idx)].sort((a, b) => a - b), parts = [];
+    for (let i = 0; i < s.length;) {
+      let j = i;
+      while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++;
+      if (j - i >= 2) parts.push(`${s[i] + 1}–${s[j] + 1}`);
+      else for (let t = i; t <= j; t++) parts.push(String(s[t] + 1));
+      i = j + 1;
+    }
+    return `${unit}${s.length > 1 ? "s" : ""} ${hintText.list(parts)}`;
+  },
+  span(a, b, unit) { return a === b ? `${unit} ${a + 1}` : `${unit}s ${a + 1}–${b + 1}`; },
+  cells(n) { return `${n} cell${n === 1 ? "" : "s"}`; },
+  // "the 6", or "the second 6" when the clue has more than one 6
+  block(clue, j) {
+    const L = clue[j], same = clue.filter(x => x === L).length;
+    if (same === 1) return `the ${L}`;
+    const nth = clue.slice(0, j + 1).filter(x => x === L).length;
+    return `the ${["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"][nth - 1] || nth + "th"} ${L}`;
+  }
+};
+
+// Explain the best deduction in one line. Returns null if nothing new can be found there.
+function explainLine(clue, known, src, ctx) {
+  const n = known.length, T = hintText, unit = ctx.unit, where = ctx.name;
+  const starts = blockStarts(clue, known);
+  if (!starts) return null;
+  const forced = solveLine(clue, known);
+  if (!forced) return null;
+  const newCells = [];
+  for (let i = 0; i < n; i++) if (known[i] === -1 && forced[i] !== -1) newCells.push(i);
+  if (!newCells.length) return null;
+  const step1 = { text: `Look at ${where} (clue ${clue.length ? clue.join(" ") : 0}).` };
+  const k = clue.length;
+  const minS = starts.map(s => s[0]), maxS = starts.map(s => s[s.length - 1]);
+  const placed = clue.map((L, j) => starts[j].length === 1 && known.slice(minS[j], minS[j] + L).every(v => v === 1));
+  const options = [];
+
+  const cap = t => t[0].toUpperCase() + t.slice(1);
+
+  // A: plain overlap inside the free stretch between placed blocks (arithmetic only).
+  for (let a = 0; a < k;) {
+    if (placed[a]) { a++; continue; }
+    let b = a;
+    while (b + 1 < k && !placed[b + 1]) b++;
+    let lo = a > 0 ? minS[a - 1] + clue[a - 1] + 1 : 0;
+    let hi = b < k - 1 ? minS[b + 1] - 2 : n - 1;
+    const trimmed = [];
+    while (lo <= hi && known[lo] === 0) trimmed.push(lo++);
+    while (hi >= lo && known[hi] === 0) trimmed.push(hi--);
+    const group = clue.slice(a, b + 1);
+    const minLen = group.reduce((s, x) => s + x, 0) + group.length - 1;
+    const space = hi - lo + 1, slack = space - minLen;
+    if (slack >= 0) {
+      // What's already settled around this stretch, e.g. "You've placed the 11, 5 and 2, and row 19 is crossed".
+      const parts = [];
+      const pj = clue.map((_, j) => j).filter(j => placed[j]);
+      if (pj.length) {
+        const dup = pj.some(j => clue.filter(x => x === clue[j]).length > 1);
+        parts.push(`You've placed ${dup ? T.list(pj.map(j => T.block(clue, j))) : "the " + T.list(pj.map(j => String(clue[j])))}`);
+      }
+      const tx = trimmed.filter(i => src[i] === "x"), tc = trimmed.filter(i => src[i] && src[i] !== "x");
+      if (tx.length) parts.push(`${T.set(tx, unit)} ${tx.length > 1 ? "are" : "is"} crossed`);
+      if (tc.length) parts.push(`${T.set(tc, unit)} ${tc.length > 1 ? "are" : "is"} already complete`);
+      let context = "";
+      if (parts.length) {
+        const what = (pj.length ? "the remaining " : "the ") + group.join(" ");
+        // A comma keeps the two lists apart when the first one has its own "and".
+        const joined = parts.length === 2 && /,| and /.test(parts[0]) ? `${parts[0]}, and ${parts[1]}` : T.list(parts);
+        context = ` ${cap(joined)}, so ${what} must fit in ${T.span(lo, hi, unit)}.`;
+      }
+      const stretch = [];
+      for (let i = lo; i <= hi; i++) stretch.push(i);
+      const g = group.length - 1;
+      const minText = g ? `Minimum length: ${group.join("+")} plus ${g} gap${g > 1 ? "s" : ""} = ${T.cells(minLen)}` : `Minimum length: ${T.cells(minLen)}`;
+      const spaceText = slack ? `Space available: ${T.cells(space)}, so the slack is ${slack}` : `Space available: ${T.cells(space)}, so there's no slack`;
+      // One hint per block: only that block's working and cells.
+      let pos = lo;
+      for (let j = a; j <= b; j++) {
+        const L = clue[j], e = pos, l = e + slack, nm = T.block(clue, j);
+        pos += L + 1;
+        const fills = [];
+        for (let i = l; i < e + L; i++) if (known[i] === -1) fills.push(i);
+        if (!fills.length) continue;
+        const range = [];
+        for (let i = e; i < l + L; i++) range.push(i);
+        const bullets = [minText, spaceText];
+        if (slack) {
+          bullets.push(`${cap(nm)} can start no earlier than ${unit} ${e + 1} (${T.span(e, e + L - 1, unit)}) and no later than ${unit} ${l + 1} (${T.span(l, l + L - 1, unit)})`);
+          bullets.push(`Overlap: ${T.set(fills, unit)} in ${where} must be filled`);
+        } else {
+          bullets.push(`So ${nm} has exactly one place: ${T.span(e, e + L - 1, unit)}`);
+          bullets.push(`Fill ${T.set(fills, unit)} in ${where}`);
+        }
+        const steps = [step1, { text: `Focus on ${nm}.${context}`, stretch: context ? stretch : range }, { bullets, stretch: context ? stretch : range, targets: true }];
+        options.push({ type: "A", rank: 0, gain: fills.length, steps, targets: fills.map(i => ({ i, v: 1 })) });
+      }
+    }
+    a = b + 1;
+  }
+
+  // Which blocks can cover each cell, given the marks.
+  const coverBy = Array.from({ length: n }, () => []);
+  clue.forEach((L, j) => {
+    const seen = new Set();
+    for (const s of starts[j]) for (let i = s; i < s + L; i++) if (!seen.has(i)) { seen.add(i); coverBy[i].push(j); }
+  });
+
+  // Facts that limit where a block can go: filled cells only it can reach, and crossed
+  // (or complete) cells right next to its range.
+  const factsFor = (js) => {
+    const reasons = [], cellsUsed = [], seen = new Set();
+    for (const j of js) {
+      const L = clue[j], e = minS[j], l = maxS[j], own = [];
+      for (let i = e; i <= l + L - 1; i++) if (known[i] === 1 && coverBy[i].length === 1 && coverBy[i][0] === j) own.push(i);
+      if (own.length) {
+        cellsUsed.push(...own);
+        reasons.push(`${cap(T.set(own, unit))} ${own.length > 1 ? "are" : "is"} filled, and only ${T.block(clue, j)} can reach ${own.length > 1 ? "them" : "it"}`);
+      }
+      for (const i of [e - 1, l + L]) if (i >= 0 && i < n && known[i] === 0 && !seen.has(i)) {
+        seen.add(i); cellsUsed.push(i);
+        reasons.push(`${cap(T.span(i, i, unit))} ${src[i] === "x" ? "is crossed" : "is already complete"}`);
+      }
+    }
+    return { reasons, cellsUsed };
+  };
+
+  // B: one block's possible starts overlap, once the marks are taken into account. One hint per block.
+  clue.forEach((L, j) => {
+    const e = minS[j], l = maxS[j], fills = [];
+    for (let i = l; i < e + L; i++) if (known[i] === -1) fills.push(i);
+    if (!fills.length) return;
+    const nm = T.block(clue, j);
+    const range = [];
+    for (let i = e; i < l + L; i++) range.push(i);
+    const { reasons, cellsUsed } = factsFor([j]);
+    const lead = reasons.length ? "So " : "With your marks, ";
+    const bullets = [e === l
+      ? `${lead}${nm} has only one place: ${T.span(e, e + L - 1, unit)}`
+      : `${lead}${nm} can start no earlier than ${unit} ${e + 1} (${T.span(e, e + L - 1, unit)}) and no later than ${unit} ${l + 1} (${T.span(l, l + L - 1, unit)})`];
+    bullets.push(e === l ? `Fill ${T.set(fills, unit)} in ${where}` : `Overlap: ${T.set(fills, unit)} in ${where} must be filled`);
+    const hl = cellsUsed.length ? cellsUsed : range;
+    const steps = [step1, { text: `Focus on ${nm}.`, bullets: reasons.length ? reasons : null, stretch: hl }, { bullets, stretch: hl, targets: true }];
+    options.push({ type: "B", rank: reasons.length ? 1 : 3, gain: fills.length, steps, targets: fills.map(i => ({ i, v: 1 })) });
+  });
+
+  // C: cells no block can reach must be empty.
+  {
+    const crosses = [];
+    for (let i = 0; i < n; i++) if (known[i] === -1 && !coverBy[i].length) crosses.push(i);
+    if (crosses.length) {
+      const steps = [step1];
+      const them = crosses.length > 1 ? "them" : "it";
+      // Caps: every cross sits right next to a block you've completed.
+      const capOf = i => clue.findIndex((L, j) => placed[j] && (i === minS[j] - 1 || i === minS[j] + L));
+      const caps = crosses.map(capOf);
+      if (caps.every(j => j >= 0)) {
+        // One hint per completed block.
+        for (const j of [...new Set(caps)]) {
+          const mine = crosses.filter((_, x) => caps[x] === j), capCells = [];
+          for (let i = minS[j]; i < minS[j] + clue[j]; i++) capCells.push(i);
+          options.push({
+            type: "C", rank: 2, gain: mine.length, targets: mine.map(i => ({ i, v: 0 })), steps: [step1,
+              { text: `Focus on ${T.block(clue, j)}: you've completed it in ${T.span(minS[j], minS[j] + clue[j] - 1, unit)}.`, stretch: capCells },
+              { text: `A block needs an empty cell on each side, so ${T.set(mine, unit)} in ${where} must be empty: cross ${mine.length > 1 ? "them" : "it"}.`, stretch: capCells, targets: true }]
+          });
+        }
+      } else {
+        if (!k) {
+          steps.push({ text: `The clue is 0, so the whole ${ctx.kind} is empty: cross ${T.set(crosses, unit)}.`, targets: true });
+        } else {
+          // Only the blocks next to the crossed cells matter.
+          const near = new Set();
+          for (const i of crosses) {
+            let before = -1, after = -1;
+            clue.forEach((L, j) => { if (maxS[j] + L - 1 < i) before = j; if (after < 0 && minS[j] > i) after = j; });
+            if (before >= 0) near.add(before);
+            if (after >= 0) near.add(after);
+            if (before < 0 && after < 0) clue.forEach((_, j) => near.add(j));
+          }
+          const js = [...near].sort((x, y) => x - y);
+          const { reasons, cellsUsed } = factsFor(js);
+          if (reasons.length) steps.push({ bullets: reasons, stretch: cellsUsed });
+          const bullets = js.map((j, idx) => {
+            const cov = [];
+            for (let i = 0; i < n; i++) if (coverBy[i].includes(j)) cov.push(i);
+            const lead = idx ? "" : reasons.length ? "So " : "With your marks, ";
+            return `${lead}${lead ? T.block(clue, j) : cap(T.block(clue, j))} can only be in ${T.set(cov, unit)}`;
+          });
+          bullets.push(`No block can reach ${T.set(crosses, unit)} in ${where}, so ${crosses.length > 1 ? "they" : "it"} must be empty: cross ${them}`);
+          steps.push({ bullets, stretch: cellsUsed, targets: true });
+        }
+        options.push({ type: "C", rank: 4, gain: crosses.length, steps, targets: crosses.map(i => ({ i, v: 0 })) });
+      }
+    }
+  }
+
+  // D: fallback when no single block explains it.
+  if (!options.length) {
+    const fills = newCells.filter(i => forced[i] === 1);
+    const steps = [step1, { text: `Try every way the clue can fit around your marks: ${T.set(fills, unit)} ${fills.length > 1 ? "are" : "is"} filled in all of them.`, targets: true }];
+    options.push({ type: "D", rank: 5, gain: fills.length, steps, targets: fills.map(i => ({ i, v: 1 })) });
+  }
+  options.sort((x, y) => x.rank - y.rank || y.gain - x.gain);
+  return options[0];
+}
+
+// The hint for the whole board: a mistake first, otherwise the easiest line deduction.
+// sol: 0/1 grid. cells: 0 blank, 1 filled, 2 crossed. Returns null when there's nothing left to find.
+function makeHint(rows, cols, sol, cells) {
+  const R = rows.length, C = cols.length;
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+    const v = cells[r][c];
+    if ((v === 1 && !sol[r][c]) || (v === 2 && sol[r][c])) {
+      return { kind: "mistake", steps: [{ text: "There's a mistake on the board. Use the Hold to check button to find it." }] };
+    }
+  }
+  if (cells.every((row, r) => row.every((v, c) => (v === 1) === !!sol[r][c]))) return null;
+  const { k, src } = hintKnown(rows, cols, cells);
+  let best = null;
+  const consider = (opt, axis, index) => {
+    if (!opt) return;
+    if (!best || opt.rank < best.rank || (opt.rank === best.rank && opt.gain > best.gain)) best = { ...opt, axis, index };
+  };
+  for (let r = 0; r < R; r++) consider(explainLine(rows[r], k[r], src[r], { unit: "column", name: `row ${r + 1}`, kind: "row" }), "row", r);
+  for (let c = 0; c < C; c++) consider(explainLine(cols[c], k.map(row => row[c]), src.map(row => row[c]), { unit: "row", name: `column ${c + 1}`, kind: "column" }), "col", c);
+  if (!best) return null;
+  const at = i => (best.axis === "row" ? { r: best.index, c: i } : { r: i, c: best.index });
+  const lineKnown = best.axis === "row" ? k[best.index].slice() : k.map(row => row[best.index]);
+  return {
+    kind: "line", type: best.type, axis: best.axis, index: best.index,
+    steps: best.steps.map(s => ({ ...s, stretch: (s.stretch || []).map(at) })),
+    targets: best.targets.map(t => ({ ...at(t.i), v: t.v })),
+    snapshot: lineKnown
+  };
+}
+
 (function () {
   // ---------- storage (every call wrapped; in-memory copy keeps the page working without it) ----------
   const mem = {};
@@ -514,6 +846,7 @@ function generateBest(R, C, seeds) {
   const undoBtn = document.getElementById("undo");
   const resetBtn = document.getElementById("reset");
   const metaEl = document.getElementById("meta");
+  const hintBtn = document.getElementById("hintBtn");
   const setStatus = (text, cls = "") => { statusEl.textContent = text; statusEl.className = "status" + (cls ? " " + cls : ""); };
 
   function load() {
@@ -585,7 +918,10 @@ function generateBest(R, C, seeds) {
     // Visible height. On iPad Safari innerHeight grows when the toolbars hide while scrolling;
     // clientHeight stays at the smaller, toolbars-shown height, so the board doesn't jump.
     const vh = Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight);
-    const H = vh - (holder.getBoundingClientRect().top + window.scrollY) - 16;
+    // An open hint panel sits under the board: keep room for it so both fit on screen.
+    const hintEl = document.getElementById("hint");
+    const hintH = hintEl && !hintEl.hidden ? hintEl.offsetHeight + 14 : 0;
+    const H = vh - (holder.getBoundingClientRect().top + window.scrollY) - 16 - hintH;
     const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + 8) + R * cell <= H;
     const fitsWidth = (cell, w) => rowW(fsOf(cell)) + C * cell + 4 <= w;
     let cell = 56;
@@ -644,7 +980,9 @@ function generateBest(R, C, seeds) {
     board.classList.toggle("solved", on);
     const banner = document.getElementById("banner");
     banner.hidden = !on;
+    hintBtn.disabled = on;
     if (on) {
+      closeHint();
       highlight(null);
       document.getElementById("bannerTitle").textContent = P.title;
       setStatus("");
@@ -742,14 +1080,14 @@ function generateBest(R, C, seeds) {
         if (!b.hidden && b.getBoundingClientRect().bottom > window.innerHeight) b.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }, 900);
     }
-    if (changed) save();
+    if (changed) { save(); hintAfterChange(); }
     undoBtn.disabled = undoStack.length === 0 || solved;
   }
   function undo() {
     if (solved || !undoStack.length) return;
     clearErrors();
     restore(undoStack.pop());
-    renderClues(); save();
+    renderClues(); save(); hintAfterChange();
     undoBtn.disabled = undoStack.length === 0;
   }
 
@@ -1010,7 +1348,7 @@ function generateBest(R, C, seeds) {
     }
     clearErrors();
     undoStack.push(changes);
-    save(); renderAll();
+    save(); renderAll(); hintAfterChange();
     setStatus(`Cleared ${plural(rows.size, "row", "rows")} and ${plural(cols.size, "column", "columns")} with mistakes. Undo brings them back.`);
   });
 
@@ -1026,7 +1364,7 @@ function generateBest(R, C, seeds) {
     cells = Array.from({ length: R }, () => Array(C).fill(0));
     cand = Array.from({ length: R }, () => Array(C).fill(0));
     undoStack = [];
-    clearErrors();
+    clearErrors(); closeHint();
     setSolved(false);
     setStatus("Grid cleared.");
     save(); renderAll();
@@ -1035,6 +1373,107 @@ function generateBest(R, C, seeds) {
     clearTimeout(resetArmed); resetArmed = null;
     resetBtn.textContent = "Reset"; resetBtn.classList.remove("danger");
   }
+
+  // ---------- hint ----------
+  // One deduction, revealed a step at a time. Hints never mark cells. The panel closes by
+  // itself once the hinted cells are marked, and says so if the board changes under it.
+  const hintEl = document.getElementById("hint"), hintSteps = document.getElementById("hintSteps");
+  const hintNext = document.getElementById("hintNext"), hintNew = document.getElementById("hintNew");
+  const hintCount = document.getElementById("hintCount"), hintStale = document.getElementById("hintStale");
+  let hint = null; // { h, shown, stale }
+  let hintFade = null;
+  function clearHintHL() {
+    board.querySelectorAll(".h-line, .h-area, .h-target").forEach(el => el.classList.remove("h-line", "h-area", "h-target"));
+  }
+  function applyHintHL() {
+    clearHintHL();
+    if (!hint || hint.stale || hint.h.kind !== "line") return;
+    const h = hint.h;
+    if (h.axis === "row") { rowClueEls[h.index].classList.add("h-line"); cellEls[h.index].forEach(el => el.classList.add("h-line")); }
+    else { colClueEls[h.index].classList.add("h-line"); for (let r = 0; r < R; r++) cellEls[r][h.index].classList.add("h-line"); }
+    const shown = h.steps.slice(0, hint.shown);
+    const area = shown.length ? shown[shown.length - 1].stretch : [];
+    area.forEach(({ r, c }) => cellEls[r][c].classList.add("h-area"));
+    if (shown.some(s => s.targets)) h.targets.forEach(({ r, c }) => cellEls[r][c].classList.add("h-target"));
+  }
+  function renderHint() {
+    const h = hint.h, total = h.steps.length;
+    hintSteps.innerHTML = "";
+    h.steps.forEach((s, i) => {
+      const li = document.createElement("li");
+      if (i >= hint.shown) {
+        if (hint.stale) return; // an out-of-date hint only keeps the steps already shown
+        li.className = "later"; li.setAttribute("aria-hidden", "true");
+      }
+      if (s.text) li.appendChild(document.createTextNode(s.text));
+      if (s.bullets) {
+        const ul = document.createElement("ul");
+        s.bullets.forEach(b => ul.appendChild(Object.assign(document.createElement("li"), { textContent: b })));
+        li.appendChild(ul);
+      }
+      hintSteps.appendChild(li);
+    });
+    hintEl.classList.toggle("stale", hint.stale);
+    hintStale.hidden = !hint.stale;
+    hintNew.hidden = !hint.stale;
+    hintNext.hidden = hint.stale || hint.shown >= total;
+    hintCount.textContent = hint.stale || total < 2 ? "" : `Step ${hint.shown} of ${total}`;
+    applyHintHL();
+  }
+  function openHint() {
+    if (solved || view !== "play") return;
+    const h = makeHint(P.rows, P.cols, SOL, cells);
+    if (!h) return;
+    clearTimeout(hintFade);
+    const wasHidden = hintEl.hidden;
+    hint = { h, shown: 1, stale: false };
+    hintEl.classList.remove("fading");
+    hintEl.hidden = false;
+    hintBtn.setAttribute("aria-pressed", "true");
+    renderHint();
+    if (wasHidden) layout(); // the panel's height doesn't change between steps (later steps are hidden, not removed)
+    // If the panel is below the fold, scroll it into view, but never past the top of the board (the clues).
+    const over = hintEl.getBoundingClientRect().bottom - window.innerHeight + 8;
+    const room = document.getElementById("holder").getBoundingClientRect().top - 8;
+    if (over > 0 && room > 0) window.scrollBy({ top: Math.min(over, room) });
+  }
+  function closeHint(fade = false) {
+    clearTimeout(hintFade);
+    if (!hint && hintEl.hidden) return;
+    hint = null;
+    hintBtn.setAttribute("aria-pressed", "false");
+    clearHintHL();
+    if (fade) {
+      hintEl.classList.add("fading");
+      hintFade = setTimeout(() => { hintEl.hidden = true; hintEl.classList.remove("fading"); layout(); }, 350);
+    } else {
+      hintEl.hidden = true; hintEl.classList.remove("fading"); layout();
+    }
+  }
+  function hintAfterChange() {
+    if (!hint || hint.stale) return;
+    const h = hint.h;
+    if (h.kind === "mistake") { if (!findMistakes().length) closeHint(true); return; }
+    const { k } = hintKnown(P.rows, P.cols, cells);
+    const cur = h.axis === "row" ? k[h.index] : k.map(row => row[h.index]);
+    if (h.targets.every(({ r, c, v }) => k[r][c] === v)) { closeHint(true); return; }
+    const changed = h.snapshot.some((v, i) => v !== -1 && cur[i] !== v) ||
+      h.targets.some(({ r, c, v }) => k[r][c] !== -1 && k[r][c] !== v);
+    if (changed) { hint.stale = true; renderHint(); layout(); }
+  }
+  // The Hint button (and H) toggles: pressing it while a hint is open closes the panel.
+  const toggleHint = () => (hint ? closeHint() : openHint());
+  hintBtn.addEventListener("click", toggleHint);
+  hintNew.addEventListener("click", openHint);
+  hintNext.addEventListener("click", () => {
+    if (!hint || hint.shown >= hint.h.steps.length) return;
+    hint.shown++; renderHint();
+  });
+  document.getElementById("hintClose").addEventListener("click", () => closeHint());
+  document.addEventListener("keydown", e => {
+    if (view !== "play" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.toLowerCase() === "h") { e.preventDefault(); toggleHint(); }
+  });
 
   // ---------- switching puzzles ----------
   // A generated puzzle that was never touched is dropped when you move on, so History stays clean.
@@ -1046,6 +1485,7 @@ function generateBest(R, C, seeds) {
     store.del(recKey(id));
   }
   function openPuzzle(id) {
+    closeHint();
     if (P && P.id !== id) dropIfUntouched(P.id);
     P = findPuzzle(id) || PUZZLES[0];
     store.set(CUR_KEY, P.id);
@@ -1113,7 +1553,7 @@ function generateBest(R, C, seeds) {
     toolbarEl.hidden = v !== "play"; // the toolbar sits beside the board in landscape
     historyView.hidden = v !== "history";
     historyBtn.setAttribute("aria-pressed", String(v === "history"));
-    if (v === "history") { highlight(null); renderHistory(); }
+    if (v === "history") { highlight(null); closeHint(); renderHistory(); }
     else requestAnimationFrame(layout);
   }
   historyBtn.addEventListener("click", () => showView(view === "history" ? "play" : "history"));
