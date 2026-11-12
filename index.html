@@ -56,7 +56,7 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 24px 40px;
 }
-.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .view { display: flex; flex-direction: column; gap: 18px; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
@@ -539,18 +539,26 @@ function generateBest(R, C, seeds) {
   }
 
   // ---------- sizing ----------
+  // Cells use the available width (up to 56px). Above the old 34px size they only grow while the
+  // whole board still fits on screen without scrolling, so large screens (iPad portrait) get a
+  // bigger board and smaller windows keep the previous size.
   function layout() {
     if (!P) return;
-    const W = document.getElementById("holder").clientWidth;
+    const holder = document.getElementById("holder");
+    const W = holder.clientWidth;
     if (!W) return;
     const rowW = fs => Math.ceil(Math.max(...P.rows.map(cl =>
       cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * 0.45 * fs)) + 10);
-    let cell = 34, fs, rowClueW;
-    for (; cell >= 12; cell--) {
-      fs = Math.max(9, Math.round(cell * 0.5));
-      rowClueW = rowW(fs);
-      if (rowClueW + C * cell + 4 <= W) break;
-    }
+    const fsOf = cell => Math.min(20, Math.max(9, Math.round(cell * 0.5)));
+    const H = window.innerHeight - (holder.getBoundingClientRect().top + window.scrollY) - 16;
+    const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + 8) + R * cell <= H;
+    const fitsWidth = (cell, w) => rowW(fsOf(cell)) + C * cell + 4 <= w;
+    // Previous size: up to 34px within a 640px column. Never go below it.
+    let base = 34;
+    while (base > 12 && !fitsWidth(base, Math.min(W, 640))) base--;
+    let cell = 56;
+    while (cell > base && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
+    const fs = fsOf(cell), rowClueW = rowW(fs);
     cell = Math.max(12, cell);
     const colClueH = Math.ceil(maxCol * fs * 1.2 + 8);
     board.style.setProperty("--cell", cell + "px");
@@ -889,6 +897,7 @@ function generateBest(R, C, seeds) {
     touchUI = on;
     modeSeg.hidden = !on;
     legendEl.hidden = on;
+    requestAnimationFrame(layout); // toolbar height changed
   }
   // React on press (not just click) so a quick tap straight after a swipe still switches mode.
   const pickMode = e => {
