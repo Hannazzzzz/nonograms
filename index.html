@@ -70,6 +70,8 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; marg
 
 .navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pick { display: inline-flex; align-items: center; gap: 8px; }
+/* Slightly narrower Size and Level buttons so the title and puzzle bar share one row on iPad portrait. */
+.navbar .seg button { padding-inline: 10px; }
 .nav-actions { display: contents; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
@@ -86,7 +88,6 @@ button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 button:disabled { opacity: 0.45; cursor: default; background: var(--paper); }
 button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 button.primary:hover { background: color-mix(in srgb, var(--ink) 85%, var(--paper)); }
-.seg-label { font-size: 0.85rem; color: var(--muted); }
 .spacer { flex: 1; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .toolbar button { white-space: nowrap; }
@@ -251,8 +252,8 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   .top { flex-direction: column; align-items: stretch; }
   h1 { font-size: 1.35rem; }
   .navbar .spacer { display: none; }
-  /* Size and Level as label + control rows, controls full width; New puzzle and History below. */
-  .navbar { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+  /* Size and Level as full-width rows; New puzzle and History below. */
+  .navbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .pick { display: contents; }
   .navbar .seg { display: flex; }
   .navbar .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
@@ -284,16 +285,14 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
 
   <nav class="navbar" aria-label="Puzzles">
     <div class="pick">
-      <span class="seg-label" id="sizeLabel">Size</span>
-      <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
+      <div class="seg" role="group" aria-label="Size" id="sizeSeg">
         <button data-size="10" aria-pressed="false">10</button>
         <button data-size="15" aria-pressed="true">15</button>
         <button data-size="20" aria-pressed="false">20</button>
       </div>
     </div>
     <div class="pick">
-      <span class="seg-label" id="levelLabel">Level</span>
-      <div class="seg" role="group" aria-labelledby="levelLabel" id="levelSeg">
+      <div class="seg" role="group" aria-label="Level" id="levelSeg">
         <button data-level="easy" aria-pressed="true">Easy</button>
         <button data-level="medium" aria-pressed="false">Medium</button>
         <button data-level="hard" aria-pressed="false">Hard</button>
