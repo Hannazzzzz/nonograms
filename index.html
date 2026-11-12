@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hanna's Nonograms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+/* Layout: one centred column, graph-paper board as the hero, controls above, help below */
+:root {
+  --bg: #e9eef2;
+  --paper: #fbfcfd;
+  --line: #cfd8e0;
+  --line-strong: #52657a;
+  --grid5: #ee9dbb;
+  --ink: #1d3a5c;
+  --muted: #6a7b8c;
+  --fg: #172431;
+  --accent: #c98a12;
+  --accent-soft: rgba(201, 138, 18, 0.13);
+  --cand-strong: #7a4f00;
+  --done: #a9b6c3;
+  --error: #c4392b;
+  --ok: #12c94f;
+  --ok-text: #0f7a35;
+  --error-soft: rgba(196, 57, 43, 0.18);
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-clue: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --cell: 28px;
+  --clue-fs: 13px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151b; --paper: #17202a; --line: #2a3643; --line-strong: #8396aa; --grid5: #c07895;
+    --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
+    --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
+    --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151b; --paper: #17202a; --line: #2a3643; --line-strong: #8396aa; --grid5: #c07895;
+  --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
+  --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
+  --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
+  color-scheme: dark;
+}
+html { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 40px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.view { display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.meta { font-family: var(--font-clue); font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+button {
+  font: 500 0.9rem var(--font-body); color: var(--fg); background: var(--paper);
+  border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px;
+}
+button:hover { background: var(--accent-soft); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+button:disabled { opacity: 0.45; cursor: default; background: var(--paper); }
+button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button.primary:hover { background: color-mix(in srgb, var(--ink) 85%, var(--paper)); }
+.seg-label { font-size: 0.85rem; color: var(--muted); }
+.spacer { flex: 1; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.toolbar button { white-space: nowrap; }
+button { touch-action: manipulation; }
+#modeSeg button { min-height: 44px; padding: 8px 14px; }
+#check { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#check:active { background: var(--accent-soft); }
+.legend { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.85rem; color: var(--muted); }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend .swatch { color: var(--ink); }
+.legend .xmark { color: var(--muted); }
+[hidden] { display: none !important; }
+button.danger { border-color: var(--error); color: var(--error); }
+.swatch { width: 12px; height: 12px; background: currentColor; border-radius: 2px; display: inline-block; }
+.xmark { font-family: var(--font-clue); font-weight: 700; }
+
+.board-holder { display: flex; justify-content: center; }
+.board {
+  display: grid; touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.corner { }
+.cclue {
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  padding-bottom: 4px; gap: 1px;
+}
+.rclue {
+  display: flex; justify-content: flex-end; align-items: center; padding-right: 6px; gap: 0.45em;
+}
+.cclue span, .rclue span {
+  font-family: var(--font-clue); font-weight: 700; font-size: var(--clue-fs);
+  font-variant-numeric: tabular-nums; color: var(--fg); line-height: 1.15;
+  transition: color 0.2s;
+}
+.cclue.ok span, .rclue.ok span { color: var(--done); }
+.cclue.hl, .rclue.hl { background: var(--accent-soft); border-radius: 4px; }
+
+.cell {
+  width: var(--cell); height: var(--cell); background: var(--paper); position: relative;
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  padding: 0; margin: 0; border-radius: 0; min-height: 0; cursor: pointer; display: block;
+  border-top: 0; border-left: 0; outline: none;
+}
+.cell:focus-visible { outline: none; }
+.cell.c0 { border-left: 2px solid var(--line-strong); }
+.cell.r0 { border-top: 2px solid var(--line-strong); }
+.cell.b5r { border-right: 2px solid var(--grid5); }
+.cell.b5b { border-bottom: 2px solid var(--grid5); }
+.cell.er { border-right: 2px solid var(--line-strong); }
+.cell.eb { border-bottom: 2px solid var(--line-strong); }
+.cell.hl { background: color-mix(in srgb, var(--paper) 91%, var(--ink)); }
+.cell.k1 { background: color-mix(in srgb, var(--paper) 80%, var(--accent)); }
+.cell.k2 { background: color-mix(in srgb, var(--paper) 50%, var(--accent)); }
+.cell.k1::before, .cell.k2::before {
+  content: ""; position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.cell.k1::before { width: 22%; height: 22%; border: 1.5px solid var(--accent); }
+.cell.k2::before { width: 34%; height: 34%; background: var(--cand-strong); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.cell.s1 { background: var(--ink); }
+.cell.s2::before, .cell.s2::after {
+  content: ""; position: absolute; left: 22%; right: 22%; top: 50%; height: 2px;
+  background: var(--muted); border-radius: 1px;
+}
+.cell.s2::before { transform: rotate(45deg); }
+.cell.s2::after { transform: rotate(-45deg); }
+.cell:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.cell.err { box-shadow: inset 0 0 0 3px var(--error); }
+.cell.err.s2::before, .cell.err.s2::after { background: var(--error); }
+
+.board { position: relative; }
+.grid-frame {
+  grid-column: 2 / -1; grid-row: 2 / -1; position: absolute; inset: -3px;
+  border: 4px solid transparent; border-radius: 6px; pointer-events: none; z-index: 1;
+}
+.board.all-ok .grid-frame { border-color: var(--ok); }
+.board.solved .cell { cursor: default; }
+.board.solved .cell.s2::before, .board.solved .cell.s2::after { opacity: 0; transition: opacity 0.6s; }
+.board.solved .cell { border-color: var(--paper); transition: border-color 0.8s; }
+.board.solved .cell.k1, .board.solved .cell.k2 { background: var(--paper); }
+.board.solved .cell.k1::before, .board.solved .cell.k2::before { display: none; }
+
+.status { min-height: 1.4em; font-size: 0.95rem; text-align: center; color: var(--muted); }
+.status.bad { color: var(--error); }
+.status.good { color: var(--fg); }
+.solved-banner {
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.solved-banner h2 { font-family: var(--font-display); margin: 0; font-size: 1.35rem; }
+.solved-banner p { margin: 0; color: var(--muted); }
+
+.help { font-size: 0.88rem; color: var(--muted); line-height: 1.55; max-width: 62ch; }
+.help h2 { font-family: var(--font-display); font-size: 0.95rem; color: var(--fg); margin: 0 0 6px; }
+.help p { margin: 0; }
+kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--paper); }
+
+/* History */
+.hist-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.hist-head h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 0; flex: 1; }
+.hlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hrow {
+  display: flex; align-items: center; gap: 10px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 8px 8px;
+}
+.hrow.current { border-color: var(--line-strong); }
+.hopen {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; border: 0; background: none;
+  padding: 2px; text-align: left; min-height: 0; border-radius: 6px;
+}
+.hopen:hover { background: none; }
+.hopen:hover .htitle { text-decoration: underline; text-underline-offset: 3px; }
+.hthumb { flex: none; border-radius: 4px; border: 1px solid var(--line); background: var(--paper); display: block; }
+.hinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.htitle { font-weight: 600; color: var(--fg); }
+.hsub { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pill {
+  font-family: var(--font-clue); font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase;
+  border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; align-self: flex-start;
+}
+.pill.solved { color: var(--ok-text); }
+.pill.progress { color: var(--accent); }
+.hremove { flex: none; font-size: 0.82rem; min-height: 32px; padding: 4px 10px; border-color: var(--line); color: var(--muted); }
+.empty { color: var(--muted); text-align: center; padding: 28px 0; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Hanna's Nonograms</h1>
+    <span class="meta" id="meta"></span>
+  </header>
+
+  <nav class="navbar" aria-label="Puzzles">
+    <span class="seg-label" id="sizeLabel">Size</span>
+    <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
+      <button data-size="10" aria-pressed="false">10</button>
+      <button data-size="15" aria-pressed="true">15</button>
+      <button data-size="20" aria-pressed="false">20</button>
+    </div>
+    <button id="newPuzzle" class="primary">New puzzle</button>
+    <span class="spacer"></span>
+    <button id="historyBtn">History</button>
+  </nav>
+
+  <section class="view" id="playView">
+    <div class="toolbar" role="toolbar" aria-label="Puzzle controls">
+      <div class="seg" role="group" aria-label="Mode" id="modeSeg" hidden>
+        <button data-mode="1" aria-pressed="true"><span class="swatch" aria-hidden="true"></span> Fill</button>
+        <button data-mode="2" aria-pressed="false"><span class="xmark" aria-hidden="true">✕</span> Cross</button>
+        <button data-mode="3" aria-pressed="false"><span class="dot" aria-hidden="true"></span> Candidate</button>
+      </div>
+      <p class="legend">
+        <span><span class="swatch" aria-hidden="true"></span> Tap: fill</span>
+        <span><span class="xmark" aria-hidden="true">✕</span> Two-finger tap, or hold <kbd>⌘</kbd> and move: cross</span>
+        <span><span class="dot" aria-hidden="true"></span> Hold <kbd>Option</kbd> and move: candidate</span>
+      </p>
+      <span class="spacer"></span>
+      <div class="actions">
+        <button id="undo" disabled>Undo</button>
+        <button id="check" title="Hold to show mistakes">Hold to check</button>
+        <button id="clearMistakes">Clear lines with mistakes</button>
+        <button id="clearCand">Clear candidates</button>
+        <button id="reset">Reset</button>
+      </div>
+    </div>
+
+    <div class="board-holder" id="holder">
+      <div class="board" id="board" aria-label="Nonogram grid"></div>
+    </div>
+
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="solved-banner" id="banner" hidden>
+      <h2 id="bannerTitle"></h2>
+      <p>Solved. Your finished grid stays here until you reset it.</p>
+      <button id="bannerNew" class="primary">New puzzle</button>
+    </div>
+
+    <section class="help">
+      <h2>Keyboard</h2>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+    </section>
+  </section>
+
+  <section class="view" id="historyView" hidden>
+    <div class="hist-head">
+      <h2>History</h2>
+      <div class="seg" role="group" aria-label="Filter" id="histFilter">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="progress" aria-pressed="false">In progress</button>
+        <button data-f="solved" aria-pressed="false">Solved</button>
+      </div>
+      <button id="backBtn">Back to puzzle</button>
+    </div>
+    <ul class="hlist" id="hlist"></ul>
+    <p class="empty" id="hempty" hidden></p>
+  </section>
+</div>
+
+<script>
+// Built-in puzzles: clues and solution generated and verified by script (unique, solvable by line logic alone).
+const PUZZLES = [{"id": "boat-15", "number": 1, "title": "Sailing boat", "rows": [[2], [1, 4], [2, 4], [3, 2], [4], [1, 4], [2, 5], [3, 6], [4, 7], [5, 7], [1], [13], [11], [1, 9, 1], [2, 1, 1, 2]], "cols": [[1], [1, 1, 1], [2, 2, 1], [3, 3], [4, 3], [5, 4], [4, 4], [8, 3], [7, 3], [6, 4], [2, 5, 3], [4, 4, 3], [4, 3, 2, 1], [2, 2, 1, 1], [1]], "solution": ["...........##..", "......#...####.", "......##..####.", "......###..##..", "......####.....", ".....#.####....", "....##.#####...", "...###.######..", "..####.#######.", ".#####.#######.", "......#........", ".#############.", "..###########..", "#..#########..#", ".##..#...#..##."]}];
+
+// ---------- generator and line solver ----------
+// New puzzles are only accepted when line logic alone solves every cell from the clues,
+// which also proves the solution is unique.
+// Nonogram generator + line solver. Shared between Node tests and the page.
+function clueOf(line) {
+  const out = []; let n = 0;
+  for (const v of line) { if (v) n++; else if (n) { out.push(n); n = 0; } }
+  if (n) out.push(n);
+  return out;
+}
+
+// Line solver: given clue and known cells (-1 unknown, 0 empty, 1 filled),
+// returns new array with every cell forced by all valid placements, or null if contradiction.
+function solveLine(clue, known) {
+  const n = known.length, k = clue.length;
+  // canPlace[i][j]: can cells i..n-1 be completed with clues j..k-1
+  const can = Array.from({ length: n + 2 }, () => new Uint8Array(k + 1));
+  // suffix: can[i][j]
+  const okEmpty = new Uint8Array(n + 1); // cells i..n-1 can all be empty
+  okEmpty[n] = 1;
+  for (let i = n - 1; i >= 0; i--) okEmpty[i] = okEmpty[i + 1] && known[i] !== 1 ? 1 : 0;
+  // noZero[i][len]: cells i..i+len-1 can all be filled -> use prefix count of zeros
+  const zeros = new Int32Array(n + 1);
+  for (let i = 0; i < n; i++) zeros[i + 1] = zeros[i] + (known[i] === 0 ? 1 : 0);
+  const fillable = (i, len) => i + len <= n && zeros[i + len] - zeros[i] === 0;
+  for (let i = n; i >= 0; i--) {
+    can[i][k] = okEmpty[i];
+    for (let j = k - 1; j >= 0; j--) {
+      let v = 0;
+      // option 1: cell i empty
+      if (i < n && known[i] !== 1 && can[i + 1][j]) v = 1;
+      // option 2: block j starts at i
+      const L = clue[j];
+      if (!v && fillable(i, L)) {
+        const e = i + L;
+        if (e === n) v = j === k - 1 ? 1 : 0;
+        else if (known[e] !== 1 && can[e + 1][j + 1]) v = 1;
+      }
+      can[i][j] = v;
+    }
+  }
+  if (!can[0][0]) return null;
+  // forward reachability: reach[i][j] = prefix 0..i-1 consistent having placed j blocks, at position i free to start
+  const reach = Array.from({ length: n + 2 }, () => new Uint8Array(k + 1));
+  reach[0][0] = 1;
+  const canFill = new Uint8Array(n), canEmpty = new Uint8Array(n);
+  const diff = new Int32Array(n + 1);
+  for (let i = 0; i <= n; i++) {
+    for (let j = 0; j <= k; j++) {
+      if (!reach[i][j]) continue;
+      if (i < n && known[i] !== 1) {
+        // cell i empty, rest must still be completable
+        if (can[i + 1][j]) { canEmpty[i] = 1; reach[i + 1][j] = 1; }
+      }
+      if (j < k) {
+        const L = clue[j];
+        if (fillable(i, L)) {
+          const e = i + L;
+          let viable = false;
+          if (e === n) viable = j === k - 1;
+          else if (known[e] !== 1) viable = !!can[e + 1][j + 1];
+          if (viable) {
+            diff[i]++; diff[e]--;
+            if (e < n) { canEmpty[e] = 1; reach[e + 1][j + 1] = 1; }
+          }
+        }
+      }
+    }
+  }
+  let run = 0;
+  for (let i = 0; i < n; i++) { run += diff[i]; if (run > 0) canFill[i] = 1; }
+  const out = known.slice();
+  for (let i = 0; i < n; i++) {
+    if (canFill[i] && !canEmpty[i]) out[i] = 1;
+    else if (!canFill[i] && canEmpty[i]) out[i] = 0;
+    else if (!canFill[i] && !canEmpty[i]) return null;
+  }
+  return out;
+}
+
+// Returns {solved, passes, grid}
+function lineSolve(rows, cols) {
+  const R = rows.length, C = cols.length;
+  const g = Array.from({ length: R }, () => Array(C).fill(-1));
+  let dirtyR = new Set([...Array(R).keys()]), dirtyC = new Set([...Array(C).keys()]);
+  let passes = 0;
+  while (dirtyR.size || dirtyC.size) {
+    passes++;
+    const nR = new Set(), nC = new Set();
+    for (const r of dirtyR) {
+      const res = solveLine(rows[r], g[r]);
+      if (!res) return { solved: false, contradiction: true, passes, grid: g };
+      for (let c = 0; c < C; c++) if (res[c] !== g[r][c]) { g[r][c] = res[c]; nC.add(c); }
+    }
+    for (const c of [...dirtyC, ...nC]) {
+      const col = g.map(row => row[c]);
+      const res = solveLine(cols[c], col);
+      if (!res) return { solved: false, contradiction: true, passes, grid: g };
+      for (let r = 0; r < R; r++) if (res[r] !== g[r][c]) { g[r][c] = res[r]; nR.add(r); }
+    }
+    dirtyR = nR; dirtyC = new Set();
+  }
+  const solved = g.every(row => row.every(v => v !== -1));
+  return { solved, passes, grid: g };
+}
+
+function makeRng(seed) {
+  let s = seed >>> 0 || 1;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+}
+
+// Blobby random picture: noise then majority smoothing.
+function randomPicture(R, C, rnd) {
+  const density = 0.5 + rnd() * 0.12;
+  let g = Array.from({ length: R }, () => Array.from({ length: C }, () => (rnd() < density ? 1 : 0)));
+  const rounds = 1 + (rnd() < 0.5 ? 1 : 0);
+  for (let t = 0; t < rounds; t++) {
+    const ng = g.map(row => row.slice());
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      let s = 0, cnt = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const y = r + dr, x = c + dc;
+        cnt++;
+        if (y >= 0 && y < R && x >= 0 && x < C) s += g[y][x];
+      }
+      if (s >= 5) ng[r][c] = 1; else if (s <= 3) ng[r][c] = 0;
+    }
+    g = ng;
+  }
+  return g;
+}
+
+// Generate a picture whose clues are uniquely solvable by line logic alone.
+// When the solver gets stuck, flip one unresolved cell and try again.
+function generatePuzzle(R, C, seed, maxTries = 400) {
+  const rnd = makeRng(seed);
+  let pic = randomPicture(R, C, rnd);
+  let restarts = 0;
+  for (let t = 0; t < maxTries; t++) {
+    const rows = pic.map(clueOf), cols = [...Array(C).keys()].map(c => clueOf(pic.map(row => row[c])));
+    const res = lineSolve(rows, cols);
+    const fill = pic.flat().reduce((a, b) => a + b, 0) / (R * C);
+    if (res.solved && res.passes >= 3 && fill > 0.35 && fill < 0.75) {
+      return { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), passes: res.passes, tries: t, restarts };
+    }
+    if (res.solved || fill <= 0.35 || fill >= 0.75) { pic = randomPicture(R, C, rnd); restarts++; continue; }
+    const unknown = [];
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (res.grid[r][c] === -1) unknown.push([r, c]);
+    const [r, c] = unknown[Math.floor(rnd() * unknown.length)];
+    pic[r][c] ^= 1;
+  }
+  return null;
+}
+
+// Make several verified candidates and keep the one that needs the most solver passes.
+function generateBest(R, C, seeds) {
+  let best = null;
+  for (const s of seeds) {
+    const p = generatePuzzle(R, C, s);
+    if (p && (!best || p.passes > best.passes)) best = p;
+  }
+  return best;
+}
+
+(function () {
+  // ---------- storage (every call wrapped; in-memory copy keeps the page working without it) ----------
+  const mem = {};
+  const store = {
+    get(k) {
+      if (k in mem) return mem[k];
+      try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+    },
+    set(k, v) { mem[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } },
+    del(k) { mem[k] = null; try { localStorage.removeItem(k); } catch (e) { } }
+  };
+  const GEN_KEY = "nonogram:generated", CUR_KEY = "nonogram:current", SIZE_KEY = "nonogram:size";
+  const recKey = id => "nonogram:" + id;
+  let generated = Array.isArray(store.get(GEN_KEY)) ? store.get(GEN_KEY) : [];
+  const saveGenerated = () => store.set(GEN_KEY, generated);
+  const allPuzzles = () => [...PUZZLES, ...generated];
+  const findPuzzle = id => allPuzzles().find(p => p.id === id);
+  const hasProgress = rec => !!rec && (!!rec.solvedAt || /[12]/.test(rec.cells || ""));
+
+  // ---------- puzzle state ----------
+  let P, R, C, SOL, KEY;
+  let cells, cand, solved = false, mode = 1, undoStack = [];
+  let cellEls = [], rowClueEls = [], colClueEls = [], maxCol = 1;
+
+  const board = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const undoBtn = document.getElementById("undo");
+  const resetBtn = document.getElementById("reset");
+  const metaEl = document.getElementById("meta");
+  const setStatus = (text, cls = "") => { statusEl.textContent = text; statusEl.className = "status" + (cls ? " " + cls : ""); };
+
+  function load() {
+    const d = store.get(KEY);
+    if (!d) return;
+    if (typeof d.cells === "string" && d.cells.length === R * C) {
+      cells = Array.from({ length: R }, (_, r) => [...d.cells.slice(r * C, r * C + C)].map(Number));
+    }
+    if (typeof d.cand === "string" && d.cand.length === R * C) {
+      cand = Array.from({ length: R }, (_, r) => [...d.cand.slice(r * C, r * C + C)].map(Number));
+    }
+  }
+  function save() {
+    const prev = store.get(KEY) || {};
+    const rec = { cells: cells.flat().join(""), cand: cand.flat().map(n => Math.min(9, n)).join(""), updated: Date.now() };
+    if (prev.solvedAt) rec.solvedAt = prev.solvedAt;
+    if (solved && !rec.solvedAt) rec.solvedAt = rec.updated;
+    store.set(KEY, rec);
+  }
+
+  // ---------- build ----------
+  function build() {
+    board.innerHTML = "";
+    cellEls = []; rowClueEls = []; colClueEls = [];
+    maxCol = Math.max(...P.cols.map(c => c.length));
+    board.appendChild(Object.assign(document.createElement("div"), { className: "corner" }));
+    P.cols.forEach((clue, c) => {
+      const d = document.createElement("div");
+      d.className = "cclue";
+      d.setAttribute("aria-label", `Column ${c + 1}: ${clue.join(", ")}`);
+      clue.forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      board.appendChild(d); colClueEls.push(d);
+    });
+    for (let r = 0; r < R; r++) {
+      const d = document.createElement("div");
+      d.className = "rclue";
+      d.setAttribute("aria-label", `Row ${r + 1}: ${P.rows[r].join(", ")}`);
+      P.rows[r].forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      board.appendChild(d); rowClueEls.push(d);
+      cellEls.push([]);
+      for (let c = 0; c < C; c++) {
+        const b = document.createElement("button");
+        b.className = "cell";
+        if (c === 0) b.classList.add("c0");
+        if (r === 0) b.classList.add("r0");
+        if (c === C - 1) b.classList.add("er"); else if ((c + 1) % 5 === 0) b.classList.add("b5r");
+        if (r === R - 1) b.classList.add("eb"); else if ((r + 1) % 5 === 0) b.classList.add("b5b");
+        b.dataset.r = r; b.dataset.c = c;
+        b.tabIndex = (r === 0 && c === 0) ? 0 : -1;
+        board.appendChild(b); cellEls[r].push(b);
+      }
+    }
+    // Frame around the block of cells only (not the clues), used by Hold to check.
+    board.appendChild(Object.assign(document.createElement("div"), { className: "grid-frame" }));
+  }
+
+  // ---------- sizing ----------
+  function layout() {
+    if (!P) return;
+    const W = document.getElementById("holder").clientWidth;
+    if (!W) return;
+    const rowW = fs => Math.ceil(Math.max(...P.rows.map(cl =>
+      cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * 0.45 * fs)) + 10);
+    let cell = 34, fs, rowClueW;
+    for (; cell >= 12; cell--) {
+      fs = Math.max(9, Math.round(cell * 0.5));
+      rowClueW = rowW(fs);
+      if (rowClueW + C * cell + 4 <= W) break;
+    }
+    cell = Math.max(12, cell);
+    const colClueH = Math.ceil(maxCol * fs * 1.2 + 8);
+    board.style.setProperty("--cell", cell + "px");
+    board.style.setProperty("--clue-fs", fs + "px");
+    board.style.gridTemplateColumns = `${rowClueW}px repeat(${C}, ${cell}px)`;
+    board.style.gridTemplateRows = `${colClueH}px repeat(${R}, ${cell}px)`;
+  }
+  window.addEventListener("resize", layout);
+
+  // ---------- rendering ----------
+  function runs(arr) {
+    const out = []; let n = 0;
+    for (const v of arr) { if (v === 1) n++; else if (n) { out.push(n); n = 0; } }
+    if (n) out.push(n);
+    return out.length ? out : [0];
+  }
+  const norm = clue => clue.length ? clue : [0];
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+  function renderCell(r, c) {
+    const el = cellEls[r][c];
+    el.classList.toggle("s1", cells[r][c] === 1);
+    el.classList.toggle("s2", cells[r][c] === 2);
+    const k = cells[r][c] === 0 ? cand[r][c] : 0;
+    el.classList.toggle("k1", k === 1);
+    el.classList.toggle("k2", k >= 2);
+    let st = ["empty", "filled", "marked empty"][cells[r][c]];
+    if (k === 1) st += ", 1 candidate";
+    else if (k >= 2) st += `, ${k} overlapping candidates`;
+    el.setAttribute("aria-label", `Row ${r + 1}, column ${c + 1}, ${st}`);
+  }
+  function renderClues() {
+    for (let r = 0; r < R; r++) rowClueEls[r].classList.toggle("ok", same(runs(cells[r]), norm(P.rows[r])));
+    for (let c = 0; c < C; c++) colClueEls[c].classList.toggle("ok", same(runs(cells.map(row => row[c])), norm(P.cols[c])));
+  }
+  function renderAll() {
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) renderCell(r, c);
+    renderClues();
+    undoBtn.disabled = undoStack.length === 0 || solved;
+  }
+
+  function checkSolved() {
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++)
+      if ((cells[r][c] === 1) !== (SOL[r][c] === 1)) return false;
+    return true;
+  }
+  function setSolved(on) {
+    solved = on;
+    board.classList.toggle("solved", on);
+    const banner = document.getElementById("banner");
+    banner.hidden = !on;
+    if (on) {
+      highlight(null);
+      document.getElementById("bannerTitle").textContent = P.title;
+      setStatus("");
+    }
+    undoBtn.disabled = on || undoStack.length === 0;
+  }
+
+  // ---------- editing ----------
+  let stroke = null; // {target, desired, start:{r,c}, axis, changes: Map}
+  function record(r, c) {
+    const key = r + "," + c;
+    if (!stroke.changes.has(key)) stroke.changes.set(key, { v: cells[r][c], k: cand[r][c] });
+  }
+  function setCell(r, c, v) {
+    if (cells[r][c] === v) return;
+    record(r, c);
+    cells[r][c] = v;
+    renderCell(r, c);
+  }
+  function addCand(r, c) {
+    const key = r + "," + c;
+    if (stroke.touched.has(key)) return; // one layer per drag
+    stroke.touched.add(key);
+    if (cells[r][c] !== 0) return;
+    record(r, c);
+    cand[r][c] = cand[r][c] >= 2 ? 0 : cand[r][c] + 1; // marking an overlap again clears it
+    renderCell(r, c);
+  }
+  function restore(changes) {
+    for (const [key, p] of changes) {
+      const [r, c] = key.split(",").map(Number);
+      cells[r][c] = p.v; cand[r][c] = p.k; renderCell(r, c);
+    }
+  }
+  function applyTo(r, c, isStart) {
+    if (stroke.desired === 3) { addCand(r, c); return; }
+    const cur = cells[r][c];
+    if (stroke.target === 0) { if (cur === stroke.desired) setCell(r, c, 0); }
+    else if (isStart || cur === 0) setCell(r, c, stroke.target);
+  }
+  // Candidates belong to one row or column. Acting on a cell outside that line clears them
+  // (recorded in the current stroke, so Undo brings them back).
+  function candInLine(r, c) {
+    let rows = new Set(), cols = new Set();
+    for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) if (cand[y][x]) { rows.add(y); cols.add(x); }
+    if (!rows.size) return true;
+    return (rows.size === 1 && rows.has(r)) || (cols.size === 1 && cols.has(c));
+  }
+  function clearCandsOffLine(r, c) {
+    if (candInLine(r, c)) return;
+    for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) if (cand[y][x]) {
+      record(y, x); cand[y][x] = 0; renderCell(y, x);
+    }
+  }
+  function beginStroke(r, c, desired) {
+    if (solved) return;
+    clearErrors();
+    stroke = {
+      desired, target: desired === 3 ? 3 : (cells[r][c] === desired ? 0 : desired),
+      start: { r, c }, axis: null, changes: new Map(), touched: new Set()
+    };
+    clearCandsOffLine(r, c);
+    applyTo(r, c, true);
+    renderClues();
+  }
+  function extendStroke(r, c) {
+    if (!stroke) return;
+    const s = stroke.start;
+    if (!stroke.axis) {
+      if (r === s.r && c === s.c) return;
+      stroke.axis = Math.abs(r - s.r) >= Math.abs(c - s.c) ? "col" : "row";
+    }
+    if (stroke.axis === "row") {
+      const step = c >= s.c ? 1 : -1;
+      for (let x = s.c; x !== c + step; x += step) applyTo(s.r, x, false);
+    } else {
+      const step = r >= s.r ? 1 : -1;
+      for (let y = s.r; y !== r + step; y += step) applyTo(y, s.c, false);
+    }
+    renderClues();
+  }
+  function endStroke() {
+    if (!stroke) return;
+    const changed = stroke.changes.size > 0;
+    if (changed) {
+      undoStack.push(new Map(stroke.changes));
+      if (undoStack.length > 500) undoStack.shift();
+    }
+    stroke = null;
+    if (checkSolved()) setSolved(true);
+    if (changed) save();
+    undoBtn.disabled = undoStack.length === 0 || solved;
+  }
+  function undo() {
+    if (solved || !undoStack.length) return;
+    clearErrors();
+    restore(undoStack.pop());
+    renderClues(); save();
+    undoBtn.disabled = undoStack.length === 0;
+  }
+
+  // ---------- pointer input ----------
+  let pressTimer = null, activePointer = null;
+  function cellFromPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el || !el.classList || !el.classList.contains("cell")) return null;
+    return { r: +el.dataset.r, c: +el.dataset.c };
+  }
+  board.addEventListener("contextmenu", e => e.preventDefault());
+  board.addEventListener("pointerdown", e => {
+    const t = e.target.closest(".cell");
+    if (!t || solved || activePointer !== null) return;
+    e.preventDefault();
+    if (hoverStroke) return; // Option-hover is already adding candidates
+    activePointer = e.pointerId;
+    const r = +t.dataset.r, c = +t.dataset.c;
+    armed = 0;
+    // Trackpad/mouse uses modifier keys; touch and pen use the selected mode.
+    const desired = (e.button === 2 || e.ctrlKey || e.metaKey) ? 2 : e.altKey ? 3 : (e.pointerType === "mouse" ? 1 : mode);
+    beginStroke(r, c, desired);
+    focusCell(r, c, false);
+    if (e.pointerType !== "mouse" && desired === 1) {
+      pressTimer = setTimeout(() => {
+        // long-press: switch this stroke to marking
+        if (!stroke || stroke.axis) return;
+        restore(stroke.changes);
+        stroke.changes.clear(); stroke.touched.clear();
+        stroke.desired = 2;
+        stroke.target = cells[r][c] === 2 ? 0 : 2;
+        clearCandsOffLine(r, c);
+        applyTo(r, c, true);
+        renderClues();
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {}
+      }, 420);
+    }
+  });
+  window.addEventListener("pointermove", e => {
+    if (e.pointerId !== activePointer || !stroke) return;
+    const p = cellFromPoint(e.clientX, e.clientY);
+    if (!p) return;
+    if (p.r !== stroke.start.r || p.c !== stroke.start.c) { clearTimeout(pressTimer); }
+    extendStroke(p.r, p.c);
+  });
+  function finish(e) {
+    if (e.pointerId !== activePointer) return;
+    clearTimeout(pressTimer);
+    activePointer = null;
+    endStroke();
+  }
+  window.addEventListener("pointerup", finish);
+  window.addEventListener("pointercancel", finish);
+
+  // ---------- keyboard ----------
+  let focus = { r: 0, c: 0 };
+  function focusCell(r, c, move = true) {
+    if (cellEls[focus.r] && cellEls[focus.r][focus.c]) cellEls[focus.r][focus.c].tabIndex = -1;
+    focus = { r, c };
+    const el = cellEls[r][c];
+    el.tabIndex = 0;
+    if (move) el.focus();
+    highlight(r, c);
+  }
+  board.addEventListener("keydown", e => {
+    const t = e.target.closest(".cell");
+    if (!t) return;
+    const r = +t.dataset.r, c = +t.dataset.c;
+    const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (moves[e.key]) {
+      e.preventDefault();
+      const [dr, dc] = moves[e.key];
+      focusCell(Math.min(R - 1, Math.max(0, r + dr)), Math.min(C - 1, Math.max(0, c + dc)));
+    } else if (e.key === " " || e.key === "Enter" || e.key.toLowerCase() === "x" || e.key.toLowerCase() === "c") {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      if (solved) return;
+      const key = e.key.toLowerCase();
+      beginStroke(r, c, key === "x" ? 2 : key === "c" ? 3 : 1);
+      endStroke();
+    }
+  });
+  board.addEventListener("click", e => e.preventDefault());
+  document.addEventListener("keydown", e => {
+    if (view !== "play") return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+  });
+
+  // ---------- row/column highlight ----------
+  let hl = null;
+  function highlight(r, c) {
+    if (hl && rowClueEls[hl.r]) {
+      rowClueEls[hl.r].classList.remove("hl"); colClueEls[hl.c].classList.remove("hl");
+      for (let x = 0; x < C; x++) cellEls[hl.r][x].classList.remove("hl");
+      for (let y = 0; y < R; y++) cellEls[y][hl.c].classList.remove("hl");
+    }
+    hl = (r == null) ? null : { r, c };
+    if (!hl || solved) return;
+    rowClueEls[r].classList.add("hl"); colClueEls[c].classList.add("hl");
+    for (let x = 0; x < C; x++) cellEls[r][x].classList.add("hl");
+    for (let y = 0; y < R; y++) cellEls[y][c].classList.add("hl");
+  }
+  let lastHover = null;
+  board.addEventListener("pointerover", e => {
+    if (e.pointerType !== "mouse") return;
+    const t = e.target.closest(".cell");
+    if (t) { lastHover = { r: +t.dataset.r, c: +t.dataset.c }; highlight(lastHover.r, lastHover.c); }
+  });
+  board.addEventListener("pointerleave", () => { lastHover = null; highlight(null); });
+
+  // ---------- Modifier-hover: hold a key and move the pointer, no click ----------
+  // Option/Alt adds candidates (3); Command/Ctrl adds crosses (2).
+  // Pressing and releasing the key over a cell marks just that cell, unless another key
+  // was pressed in between (so shortcuts such as Cmd+Z never mark anything).
+  let hoverStroke = 0, armed = 0;
+  const kindOfEvent = e => e.altKey ? 3 : (e.metaKey || e.ctrlKey) ? 2 : 0;
+  const kindOfKey = k => k === "Alt" ? 3 : (k === "Meta" || k === "Control") ? 2 : 0;
+  function startHover(r, c, kind) {
+    if (solved || stroke || activePointer !== null) return;
+    armed = 0;
+    beginStroke(r, c, kind);
+    hoverStroke = kind;
+  }
+  function endHover() {
+    if (!hoverStroke) return;
+    hoverStroke = 0;
+    endStroke();
+  }
+  window.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse" || activePointer !== null) return;
+    const kind = kindOfEvent(e);
+    if (hoverStroke && kind !== hoverStroke) endHover();
+    if (!kind) { armed = 0; return; }
+    const p = cellFromPoint(e.clientX, e.clientY);
+    if (!p) return;
+    if (!hoverStroke) startHover(p.r, p.c, kind);
+    else extendStroke(p.r, p.c);
+  });
+  document.addEventListener("keydown", e => {
+    const kind = kindOfKey(e.key);
+    if (!kind) { armed = 0; endHover(); return; } // another key: leave shortcuts alone
+    if (e.repeat) return;
+    if (kind === 3) e.preventDefault();
+    if (lastHover && !hoverStroke) armed = kind;
+  });
+  document.addEventListener("keyup", e => {
+    const kind = kindOfKey(e.key);
+    if (!kind) return;
+    if (hoverStroke === kind) endHover();
+    else if (armed === kind && lastHover && !hoverStroke) { startHover(lastHover.r, lastHover.c, kind); endHover(); }
+    armed = 0;
+  });
+  window.addEventListener("blur", () => { armed = 0; endHover(); });
+
+  // ---------- toolbar ----------
+  document.getElementById("clearCand").addEventListener("click", () => clearAllCands());
+  function clearAllCands() {
+    if (solved) return;
+    const changes = new Map();
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (cand[r][c]) {
+      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c] });
+      cand[r][c] = 0; renderCell(r, c);
+    }
+    if (changes.size) {
+      undoStack.push(changes); save();
+      undoBtn.disabled = false;
+      setStatus("Candidates cleared. Undo brings them back.");
+    } else {
+      setStatus("There are no candidates to clear.");
+    }
+  }
+  undoBtn.addEventListener("click", undo);
+
+  // ---------- touch: Fill / Cross / Candidate mode ----------
+  // Shown when the screen is touch-first (iPad, phone) and whenever a finger or pen is used;
+  // hidden again when a mouse or trackpad is used. Mac trackpad play is unchanged.
+  const modeSeg = document.getElementById("modeSeg");
+  const legendEl = document.querySelector(".legend");
+  let touchUI = false;
+  function setMode(m) {
+    mode = m;
+    modeSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.mode === m)));
+  }
+  function setTouchUI(on) {
+    if (on === touchUI) return;
+    touchUI = on;
+    modeSeg.hidden = !on;
+    legendEl.hidden = on;
+  }
+  // React on press (not just click) so a quick tap straight after a swipe still switches mode.
+  const pickMode = e => {
+    const b = e.target.closest("button[data-mode]");
+    if (b) setMode(+b.dataset.mode);
+  };
+  modeSeg.addEventListener("pointerdown", pickMode);
+  modeSeg.addEventListener("click", pickMode);
+  window.addEventListener("pointerdown", e => {
+    if (e.pointerType === "touch" || e.pointerType === "pen") setTouchUI(true);
+    else if (e.pointerType === "mouse") setTouchUI(false);
+  }, true);
+  try { setTouchUI(matchMedia("(hover: none) and (pointer: coarse)").matches); } catch (e) { }
+
+  function clearErrors() {
+    board.querySelectorAll(".cell.err").forEach(el => el.classList.remove("err"));
+  }
+  // Wrong fills and wrong crosses; blank cells are ignored.
+  function findMistakes() {
+    const out = [];
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      const v = cells[r][c];
+      if ((v === 1 && SOL[r][c] === 0) || (v === 2 && SOL[r][c] === 1)) out.push({ r, c });
+    }
+    return out;
+  }
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  // Check: mistakes are outlined only while the button is held down.
+  const checkBtn = document.getElementById("check");
+  let checkHeld = false;
+  function showMistakes() {
+    if (solved || checkHeld) return;
+    checkHeld = true;
+    clearErrors();
+    const wrong = findMistakes();
+    wrong.forEach(({ r, c }) => cellEls[r][c].classList.add("err"));
+    setStatus("");
+    board.classList.toggle("all-ok", wrong.length === 0); // green border while held
+  }
+  function hideMistakes() {
+    if (!checkHeld) return;
+    checkHeld = false;
+    clearErrors();
+    board.classList.remove("all-ok");
+  }
+  checkBtn.addEventListener("pointerdown", e => { e.preventDefault(); showMistakes(); });
+  window.addEventListener("pointerup", hideMistakes);
+  window.addEventListener("pointercancel", hideMistakes);
+  window.addEventListener("blur", hideMistakes);
+  checkBtn.addEventListener("contextmenu", e => e.preventDefault());
+  checkBtn.addEventListener("keydown", e => {
+    if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); showMistakes(); }
+  });
+  checkBtn.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") hideMistakes(); });
+
+  // Clear every row and column that contains a mistake (one undo step).
+  document.getElementById("clearMistakes").addEventListener("click", () => {
+    if (solved) return;
+    const wrong = findMistakes();
+    if (!wrong.length) { setStatus("There are no mistakes to clear.", "good"); return; }
+    const rows = new Set(wrong.map(m => m.r)), cols = new Set(wrong.map(m => m.c));
+    const changes = new Map();
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      if (!rows.has(r) && !cols.has(c)) continue;
+      if (!cells[r][c] && !cand[r][c]) continue;
+      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c] });
+      cells[r][c] = 0; cand[r][c] = 0;
+    }
+    clearErrors();
+    undoStack.push(changes);
+    save(); renderAll();
+    setStatus(`Cleared ${plural(rows.size, "row", "rows")} and ${plural(cols.size, "column", "columns")} with mistakes. Undo brings them back.`);
+  });
+
+  let resetArmed = null;
+  resetBtn.addEventListener("click", () => {
+    if (!resetArmed) {
+      resetBtn.textContent = "Confirm reset";
+      resetBtn.classList.add("danger");
+      resetArmed = setTimeout(disarm, 3000);
+      return;
+    }
+    disarm();
+    cells = Array.from({ length: R }, () => Array(C).fill(0));
+    cand = Array.from({ length: R }, () => Array(C).fill(0));
+    undoStack = [];
+    clearErrors();
+    setSolved(false);
+    setStatus("Grid cleared.");
+    save(); renderAll();
+  });
+  function disarm() {
+    clearTimeout(resetArmed); resetArmed = null;
+    resetBtn.textContent = "Reset"; resetBtn.classList.remove("danger");
+  }
+
+  // ---------- switching puzzles ----------
+  // A generated puzzle that was never touched is dropped when you move on, so History stays clean.
+  function dropIfUntouched(id) {
+    if (!id || !id.startsWith("gen-")) return;
+    if (hasProgress(store.get(recKey(id)))) return;
+    generated = generated.filter(p => p.id !== id);
+    saveGenerated();
+    store.del(recKey(id));
+  }
+  function openPuzzle(id) {
+    if (P && P.id !== id) dropIfUntouched(P.id);
+    P = findPuzzle(id) || PUZZLES[0];
+    store.set(CUR_KEY, P.id);
+    R = P.solution.length; C = P.solution[0].length;
+    SOL = P.solution.map(row => [...row].map(ch => ch === "#" ? 1 : 0));
+    KEY = recKey(P.id);
+    cells = Array.from({ length: R }, () => Array(C).fill(0));
+    cand = Array.from({ length: R }, () => Array(C).fill(0));
+    undoStack = []; stroke = null; hl = null; focus = { r: 0, c: 0 };
+    lastHover = null; hoverStroke = 0; armed = 0; activePointer = null;
+    clearTimeout(pressTimer); disarm();
+    metaEl.textContent = `No. ${P.number} · ${R} × ${C}`;
+    build(); load(); layout(); renderAll();
+    setSolved(checkSolved());
+    // Older saves have no solved date: add one without changing when it was last played.
+    if (solved) {
+      const rec = store.get(KEY);
+      if (rec && !rec.solvedAt) store.set(KEY, { ...rec, solvedAt: rec.updated || Date.now() });
+    }
+    setStatus("");
+  }
+
+  // ---------- new puzzle ----------
+  let size = [10, 15, 20].includes(store.get(SIZE_KEY)) ? store.get(SIZE_KEY) : 15;
+  const sizeSeg = document.getElementById("sizeSeg");
+  function renderSize() {
+    sizeSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.size === size)));
+  }
+  sizeSeg.addEventListener("click", e => {
+    const b = e.target.closest("button[data-size]");
+    if (!b) return;
+    size = +b.dataset.size; store.set(SIZE_KEY, size); renderSize();
+  });
+  function randomSeeds(n) {
+    const a = new Uint32Array(n);
+    try { crypto.getRandomValues(a); } catch (e) { for (let i = 0; i < n; i++) a[i] = Math.floor(Math.random() * 4294967295); }
+    return [...a].map(x => x || 1);
+  }
+  function newPuzzle() {
+    const p = generateBest(size, size, randomSeeds(6)) || generateBest(size, size, randomSeeds(12));
+    if (!p) { showView("play"); setStatus("Couldn't make a puzzle this time. Try again.", "bad"); return; }
+    if (P) dropIfUntouched(P.id);
+    const number = Math.max(0, ...allPuzzles().map(q => q.number || 0)) + 1;
+    const id = "gen-" + Date.now().toString(36) + randomSeeds(1)[0].toString(36).slice(0, 4);
+    generated.push({ id, number, title: `Pattern No. ${number}`, created: Date.now(), rows: p.rows, cols: p.cols, solution: p.solution });
+    saveGenerated();
+    showView("play");
+    openPuzzle(id);
+  }
+  document.getElementById("newPuzzle").addEventListener("click", newPuzzle);
+  document.getElementById("bannerNew").addEventListener("click", newPuzzle);
+
+  // ---------- history ----------
+  let view = "play", filter = "all";
+  const playView = document.getElementById("playView"), historyView = document.getElementById("historyView");
+  const historyBtn = document.getElementById("historyBtn");
+  function showView(v) {
+    view = v;
+    playView.hidden = v !== "play";
+    historyView.hidden = v !== "history";
+    historyBtn.setAttribute("aria-pressed", String(v === "history"));
+    if (v === "history") { highlight(null); renderHistory(); }
+    else requestAnimationFrame(layout);
+  }
+  historyBtn.addEventListener("click", () => showView(view === "history" ? "play" : "history"));
+  document.getElementById("backBtn").addEventListener("click", () => showView("play"));
+  const histFilter = document.getElementById("histFilter");
+  histFilter.addEventListener("click", e => {
+    const b = e.target.closest("button[data-f]");
+    if (!b) return;
+    filter = b.dataset.f; renderHistory();
+  });
+
+  const fmt = (() => {
+    try { return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return null; }
+  })();
+  const when = t => t ? (fmt ? fmt.format(new Date(t)) : new Date(t).toLocaleString()) : "";
+
+  function historyItems() {
+    return allPuzzles().map(p => {
+      const rec = store.get(recKey(p.id));
+      if (!hasProgress(rec)) return null;
+      const n = p.solution.length * p.solution[0].length;
+      const grid = typeof rec.cells === "string" && rec.cells.length === n ? rec.cells : "0".repeat(n);
+      const sol = p.solution.join("");
+      const complete = [...sol].every((ch, i) => (ch === "#") === (grid[i] === "1"));
+      const isSolved = !!rec.solvedAt || complete;
+      const filled = [...grid].filter(ch => ch === "1").length;
+      const total = [...sol].filter(ch => ch === "#").length;
+      return { p, rec, grid, isSolved, filled, total, t: rec.updated || rec.solvedAt || 0 };
+    }).filter(Boolean).sort((a, b) => b.t - a.t);
+  }
+
+  function drawThumb(canvas, item) {
+    const p = item.p, rows = p.solution.length, cols = p.solution[0].length;
+    const px = Math.max(2, Math.floor(60 / Math.max(rows, cols)));
+    const w = cols * px, h = rows * px, dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + "px"; canvas.style.height = h + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    const cs = getComputedStyle(document.documentElement);
+    ctx.fillStyle = cs.getPropertyValue("--paper").trim() || "#fff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = cs.getPropertyValue("--ink").trim() || "#000";
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const on = item.isSolved ? p.solution[r][c] === "#" : item.grid[r * cols + c] === "1";
+      if (on) ctx.fillRect(c * px, r * px, px, px);
+    }
+  }
+
+  function removeEntry(id) {
+    store.del(recKey(id));
+    if (id.startsWith("gen-") && (!P || P.id !== id)) {
+      generated = generated.filter(p => p.id !== id); saveGenerated();
+    }
+    if (P && P.id === id) openPuzzle(id); // current puzzle starts again from a blank grid
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const items = historyItems();
+    const counts = { all: items.length, progress: items.filter(i => !i.isSolved).length, solved: items.filter(i => i.isSolved).length };
+    histFilter.querySelectorAll("button").forEach(b => {
+      const f = b.dataset.f;
+      b.setAttribute("aria-pressed", String(f === filter));
+      b.textContent = `${{ all: "All", progress: "In progress", solved: "Solved" }[f]} (${counts[f]})`;
+    });
+    const shown = items.filter(i => filter === "all" || (filter === "solved") === i.isSolved);
+    const list = document.getElementById("hlist");
+    list.innerHTML = "";
+    const empty = document.getElementById("hempty");
+    empty.hidden = shown.length > 0;
+    empty.textContent = items.length
+      ? (filter === "solved" ? "Nothing solved yet." : "Nothing in progress.")
+      : "No puzzles started yet. Fill a cell and it shows up here.";
+    for (const item of shown) {
+      const li = document.createElement("li");
+      li.className = "hrow" + (P && item.p.id === P.id ? " current" : "");
+      const open = document.createElement("button");
+      open.className = "hopen";
+      open.setAttribute("aria-label", `Open ${item.p.title}`);
+      const cv = document.createElement("canvas");
+      cv.className = "hthumb";
+      cv.setAttribute("aria-hidden", "true");
+      drawThumb(cv, item);
+      const info = document.createElement("span");
+      info.className = "hinfo";
+      const title = document.createElement("span");
+      title.className = "htitle";
+      title.textContent = item.p.title;
+      const sub = document.createElement("span");
+      sub.className = "hsub";
+      const dims = `${item.p.solution.length} × ${item.p.solution[0].length}`;
+      const isCur = P && item.p.id === P.id ? " · Current" : "";
+      sub.textContent = item.isSolved
+        ? `${dims} · Solved${item.rec.solvedAt ? " " + when(item.rec.solvedAt) : ""}${isCur}`
+        : `${dims} · ${item.filled} of ${item.total} filled${item.t ? " · " + when(item.t) : ""}${isCur}`;
+      const pill = document.createElement("span");
+      pill.className = "pill " + (item.isSolved ? "solved" : "progress");
+      pill.textContent = item.isSolved ? "Solved" : "In progress";
+      info.append(pill, title, sub);
+      open.append(cv, info);
+      open.addEventListener("click", () => { openPuzzle(item.p.id); showView("play"); });
+
+      const rm = document.createElement("button");
+      rm.className = "hremove";
+      rm.textContent = "Remove";
+      let armedRm = null;
+      rm.addEventListener("click", () => {
+        if (!armedRm) {
+          rm.textContent = "Confirm"; rm.classList.add("danger");
+          armedRm = setTimeout(() => { armedRm = null; rm.textContent = "Remove"; rm.classList.remove("danger"); }, 3000);
+          return;
+        }
+        clearTimeout(armedRm);
+        removeEntry(item.p.id);
+      });
+      li.append(open, rm);
+      list.appendChild(li);
+    }
+  }
+
+  // ---------- start ----------
+  renderSize();
+  openPuzzle(store.get(CUR_KEY) || PUZZLES[0].id);
+})();
+</script>
+
+</body>
+</html>
