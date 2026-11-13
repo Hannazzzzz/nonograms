@@ -270,6 +270,44 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   .legend > span > .swatch, .legend > span > .xmark, .legend > span > .dot { margin-right: 6px; vertical-align: -1px; }
 }
 
+/* Enlarge (phones): a toggle that hides the title, puzzle bar and help, shrinks the controls and
+   clues, and gives the grid the rest of the screen. Pinch zoom is off while it is on. */
+.lbl-short { display: none; }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.ico-out { display: none; }
+.zoom-btn { display: none !important; }
+@media (max-width: 599px), (max-height: 499px) { .zoom-btn { display: inline-flex !important; } }
+html.focus .zoom-btn { display: inline-flex !important; }
+html.focus .zoom-btn .ico-in, html.focus .zoom-btn .lbl { display: none; }
+html.focus .zoom-btn .ico-out { display: block; }
+html.focus { touch-action: pan-x pan-y; }
+html.focus body { padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 24px max(8px, env(safe-area-inset-left, 0px)); }
+html.focus .wrap, html.focus .view, html.focus .side { gap: 8px; }
+html.focus .top, html.focus .help, html.focus .legend,
+html.focus #clearMistakes, html.focus #clearCand, html.focus #reset { display: none !important; }
+html.focus .toolbar { flex-wrap: nowrap; gap: 6px; }
+html.focus .actions { flex-wrap: nowrap; gap: 6px; }
+html.focus .toolbar button { font-size: 0.8rem; min-height: 34px; padding: 4px 9px; gap: 4px; }
+html.focus #modeSeg button { min-height: 34px; padding: 4px 11px; }
+html.focus #modeSeg .lbl, html.focus .lbl-long { display: none; }
+html.focus .lbl-short { display: inline; }
+html.focus .cclue { padding-bottom: 2px; }
+html.focus .rclue { padding-right: 3px; gap: 0.35em; }
+html.focus .hint { padding: 8px 10px 10px 12px; }
+html.focus .hint-steps { font-size: 0.88rem; }
+/* Phone on its side: controls in a narrow column beside the grid. */
+@media (orientation: landscape) {
+  html.focus .wrap { max-width: none; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: start; }
+  html.focus .side { grid-column: 1; grid-row: 1; }
+  html.focus #playView, html.focus #historyView { grid-column: 2; grid-row: 1; }
+  html.focus .toolbar, html.focus .actions { flex-direction: column; align-items: stretch; }
+  html.focus .toolbar .spacer { display: none; }
+  html.focus #modeSeg { flex-direction: column; }
+  html.focus #modeSeg button { justify-content: center; }
+  html.focus #modeSeg button + button { border-left: 0; border-top: 1px solid var(--line-strong); }
+  html.focus .actions button { justify-content: center; }
+}
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -307,9 +345,9 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   </div>
     <div class="toolbar" role="toolbar" aria-label="Puzzle controls">
       <div class="seg" role="group" aria-label="Mode" id="modeSeg" hidden>
-        <button data-mode="1" aria-pressed="true"><span class="swatch" aria-hidden="true"></span> Fill</button>
-        <button data-mode="2" aria-pressed="false"><span class="xmark" aria-hidden="true">✕</span> Cross</button>
-        <button data-mode="3" aria-pressed="false"><span class="dot" aria-hidden="true"></span> Candidate</button>
+        <button data-mode="1" aria-pressed="true" aria-label="Fill"><span class="swatch" aria-hidden="true"></span><span class="lbl"> Fill</span></button>
+        <button data-mode="2" aria-pressed="false" aria-label="Cross"><span class="xmark" aria-hidden="true">✕</span><span class="lbl"> Cross</span></button>
+        <button data-mode="3" aria-pressed="false" aria-label="Candidate"><span class="dot" aria-hidden="true"></span><span class="lbl"> Candidate</span></button>
       </div>
       <p class="legend">
         <span><span class="swatch" aria-hidden="true"></span> Tap: fill</span>
@@ -319,11 +357,16 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
       <span class="spacer"></span>
       <div class="actions">
         <button id="undo" disabled>Undo</button>
-        <button id="check" title="Hold to show mistakes">Hold to check</button>
+        <button id="check" title="Hold to show mistakes"><span class="lbl-long">Hold to check</span><span class="lbl-short">Check</span></button>
         <button id="hintBtn" title="Hint (H)">Hint</button>
         <button id="clearMistakes">Clear lines with mistakes</button>
         <button id="clearCand">Clear candidates</button>
         <button id="reset">Reset</button>
+        <button id="zoomBtn" class="zoom-btn" aria-pressed="false" title="Bigger grid, smaller controls">
+          <svg class="ico ico-in" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
+          <svg class="ico ico-out" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4"/></svg>
+          <span class="lbl">Enlarge</span>
+        </button>
       </div>
     </div>
 
@@ -926,6 +969,34 @@ function levelCandidate(N, level, seeds) {
   };
   const GEN_KEY = "nonogram:generated", CUR_KEY = "nonogram:current", SIZE_KEY = "nonogram:size", LEVEL_KEY = "nonogram:level";
   const recKey = id => "nonogram:" + id;
+
+  // ---------- Enlarge (phones) ----------
+  // Hides the title, puzzle bar and help, shrinks the controls and clues, and gives the grid the
+  // rest of the screen. The same button goes back to the normal view. Remembered per device.
+  const FOCUS_KEY = "nonogram:focus";
+  const zoomBtn = document.getElementById("zoomBtn");
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  const VIEWPORT = viewportMeta ? viewportMeta.getAttribute("content") : "";
+  let enlarged = false;
+  function setEnlarged(on, remember = true) {
+    enlarged = on;
+    document.documentElement.classList.toggle("focus", on);
+    zoomBtn.setAttribute("aria-pressed", String(on));
+    zoomBtn.setAttribute("aria-label", on ? "Back to normal view" : "Enlarge the grid");
+    zoomBtn.title = on ? "Back to normal view" : "Bigger grid, smaller controls";
+    // No pinch zoom while enlarged; this also resets any zoom that was already applied.
+    if (viewportMeta) viewportMeta.setAttribute("content", on ? VIEWPORT + ",maximum-scale=1,user-scalable=no" : VIEWPORT);
+    if (remember) store.set(FOCUS_KEY, on);
+    if (on) window.scrollTo(0, 0);
+    requestAnimationFrame(() => { layout(); if (on) window.scrollTo(0, 0); });
+  }
+  zoomBtn.addEventListener("click", () => setEnlarged(!enlarged));
+  // iOS Safari ignores user-scalable=no, so block its pinch gesture directly.
+  document.addEventListener("gesturestart", e => { if (enlarged) e.preventDefault(); });
+  document.addEventListener("touchmove", e => { if (enlarged && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  try {
+    if (store.get(FOCUS_KEY) === true && matchMedia("(max-width: 599px), (max-height: 499px)").matches) setEnlarged(true, false);
+  } catch (e) { }
   let generated = Array.isArray(store.get(GEN_KEY)) ? store.get(GEN_KEY) : [];
   const saveGenerated = () => store.set(GEN_KEY, generated);
   const allPuzzles = () => [...PUZZLES, ...generated];
@@ -1021,27 +1092,45 @@ function levelCandidate(N, level, seeds) {
     const holder = document.getElementById("holder");
     const W = holder.clientWidth;
     if (!W) return;
+    // Enlarged view: smaller clues (relative to the cells) with tighter spacing.
+    const k = enlarged ? { f: 0.42, min: 8, max: 16, gap: 0.35, pad: 7, colPad: 6, below: 8, hintGap: 8 }
+                    : { f: 0.5, min: 9, max: 20, gap: 0.45, pad: 10, colPad: 8, below: 16, hintGap: 14 };
     const rowW = fs => Math.ceil(Math.max(...P.rows.map(cl =>
-      cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * 0.45 * fs)) + 10);
-    const fsOf = cell => Math.min(20, Math.max(9, Math.round(cell * 0.5)));
-    // Visible height. On iPad Safari innerHeight grows when the toolbars hide while scrolling;
-    // clientHeight stays at the smaller, toolbars-shown height, so the board doesn't jump.
-    const vh = Math.min(window.innerHeight, document.documentElement.clientHeight || window.innerHeight);
+      cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * k.gap * fs)) + k.pad);
+    const fsOf = cell => Math.min(k.max, Math.max(k.min, Math.round(cell * k.f)));
+    const vh = visibleHeight();
     // An open hint panel sits under the board: keep room for it so both fit on screen.
     const hintEl = document.getElementById("hint");
-    const hintH = hintEl && !hintEl.hidden ? hintEl.offsetHeight + 14 : 0;
-    const H = vh - (holder.getBoundingClientRect().top + window.scrollY) - 16 - hintH;
-    const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + 8) + R * cell <= H;
+    const hintH = hintEl && !hintEl.hidden ? hintEl.offsetHeight + k.hintGap : 0;
+    const H = vh - (holder.getBoundingClientRect().top + window.scrollY) - k.below - hintH;
+    const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + k.colPad) + R * cell <= H;
     const fitsWidth = (cell, w) => rowW(fsOf(cell)) + C * cell + 4 <= w;
     let cell = 56;
     while (cell > 12 && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
     const fs = fsOf(cell), rowClueW = rowW(fs);
     cell = Math.max(12, cell);
-    const colClueH = Math.ceil(maxCol * fs * 1.2 + 8);
+    const colClueH = Math.ceil(maxCol * fs * 1.2 + k.colPad);
     board.style.setProperty("--cell", cell + "px");
     board.style.setProperty("--clue-fs", fs + "px");
     board.style.gridTemplateColumns = `${rowClueW}px repeat(${C}, ${cell}px)`;
     board.style.gridTemplateRows = `${colClueH}px repeat(${R}, ${cell}px)`;
+  }
+  // Visible height. On touch screens (phone, iPad) the height is measured once per width: Safari's
+  // toolbars showing and hiding while scrolling, and pinch zoom, change innerHeight, and the board
+  // used to shrink when that happened. A new width (rotation, split view) measures again.
+  let vhKept = 0, vhWidth = 0;
+  function visibleHeight() {
+    const de = document.documentElement;
+    const now = Math.min(window.innerHeight, de.clientHeight || window.innerHeight);
+    let touch = false;
+    try { touch = matchMedia("(hover: none) and (pointer: coarse)").matches; } catch (e) { }
+    if (!touch) return now;
+    const zoomed = window.visualViewport && window.visualViewport.scale > 1.01;
+    if (!vhKept || (de.clientWidth !== vhWidth && !zoomed)) {
+      vhKept = zoomed ? (de.clientHeight || now) : now;
+      vhWidth = de.clientWidth;
+    }
+    return vhKept;
   }
   window.addEventListener("resize", layout);
   // Rotating an iPad can report the new size a moment late, so lay out again once it has settled.
