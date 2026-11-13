@@ -69,6 +69,10 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; marg
 .meta { font-family: var(--font-clue); font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 
 .navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pick { display: inline-flex; align-items: center; gap: 8px; }
+/* Slightly narrower Size and Level buttons so the title and puzzle bar share one row on iPad portrait. */
+.navbar .seg button { padding-inline: 10px; }
+.nav-actions { display: contents; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; }
@@ -84,7 +88,6 @@ button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 button:disabled { opacity: 0.45; cursor: default; background: var(--paper); }
 button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 button.primary:hover { background: color-mix(in srgb, var(--ink) 85%, var(--paper)); }
-.seg-label { font-size: 0.85rem; color: var(--muted); }
 .spacer { flex: 1; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .toolbar button { white-space: nowrap; }
@@ -249,6 +252,12 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   .top { flex-direction: column; align-items: stretch; }
   h1 { font-size: 1.35rem; }
   .navbar .spacer { display: none; }
+  /* Size and Level as full-width rows; New puzzle and History below. */
+  .navbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .pick { display: contents; }
+  .navbar .seg { display: flex; }
+  .navbar .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
+  .nav-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .toolbar .spacer { display: none; }
   #modeSeg { flex-direction: column; }
@@ -275,15 +284,25 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   </header>
 
   <nav class="navbar" aria-label="Puzzles">
-    <span class="seg-label" id="sizeLabel">Size</span>
-    <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
-      <button data-size="10" aria-pressed="false">10</button>
-      <button data-size="15" aria-pressed="true">15</button>
-      <button data-size="20" aria-pressed="false">20</button>
+    <div class="pick">
+      <div class="seg" role="group" aria-label="Size" id="sizeSeg">
+        <button data-size="10" aria-pressed="false">10</button>
+        <button data-size="15" aria-pressed="true">15</button>
+        <button data-size="20" aria-pressed="false">20</button>
+      </div>
     </div>
-    <button id="newPuzzle" class="primary">New puzzle</button>
-    <span class="spacer"></span>
-    <button id="historyBtn">History</button>
+    <div class="pick">
+      <div class="seg" role="group" aria-label="Level" id="levelSeg">
+        <button data-level="easy" aria-pressed="true">Easy</button>
+        <button data-level="medium" aria-pressed="false">Medium</button>
+        <button data-level="hard" aria-pressed="false">Hard</button>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button id="newPuzzle" class="primary">New puzzle</button>
+      <span class="spacer"></span>
+      <button id="historyBtn">History</button>
+    </div>
   </nav>
   </div>
     <div class="toolbar" role="toolbar" aria-label="Puzzle controls">
@@ -472,7 +491,12 @@ function makeRng(seed) {
 }
 
 // Blobby random picture: noise then majority smoothing.
-function randomPicture(R, C, rnd) {
+// With opts (Medium and Hard), plain noise at a lower density instead: more, shorter blocks per line.
+function randomPicture(R, C, rnd, opts) {
+  if (opts) {
+    const d = opts.density + rnd() * opts.spread;
+    return Array.from({ length: R }, () => Array.from({ length: C }, () => (rnd() < d ? 1 : 0)));
+  }
   const density = 0.5 + rnd() * 0.12;
   let g = Array.from({ length: R }, () => Array.from({ length: C }, () => (rnd() < density ? 1 : 0)));
   const rounds = 1 + (rnd() < 0.5 ? 1 : 0);
@@ -495,34 +519,26 @@ function randomPicture(R, C, rnd) {
 
 // Generate a picture whose clues are uniquely solvable by line logic alone.
 // When the solver gets stuck, flip one unresolved cell and try again.
-function generatePuzzle(R, C, seed, maxTries = 400) {
+// opts: picture settings for Medium and Hard (see LEVEL_PICTURE); none for Easy.
+function generatePuzzle(R, C, seed, maxTries = 400, opts) {
   const rnd = makeRng(seed);
-  let pic = randomPicture(R, C, rnd);
+  let pic = randomPicture(R, C, rnd, opts);
   let restarts = 0;
+  const minFill = opts ? 0.3 : 0.35, minPasses = opts ? 1 : 3;
   for (let t = 0; t < maxTries; t++) {
     const rows = pic.map(clueOf), cols = [...Array(C).keys()].map(c => clueOf(pic.map(row => row[c])));
     const res = lineSolve(rows, cols);
     const fill = pic.flat().reduce((a, b) => a + b, 0) / (R * C);
-    if (res.solved && res.passes >= 3 && fill > 0.35 && fill < 0.75) {
+    if (res.solved && res.passes >= minPasses && fill > minFill && fill < 0.75) {
       return { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), passes: res.passes, tries: t, restarts };
     }
-    if (res.solved || fill <= 0.35 || fill >= 0.75) { pic = randomPicture(R, C, rnd); restarts++; continue; }
+    if (res.solved || fill <= minFill || fill >= 0.75) { pic = randomPicture(R, C, rnd, opts); restarts++; continue; }
     const unknown = [];
     for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (res.grid[r][c] === -1) unknown.push([r, c]);
     const [r, c] = unknown[Math.floor(rnd() * unknown.length)];
     pic[r][c] ^= 1;
   }
   return null;
-}
-
-// Make several verified candidates and keep the one that needs the most solver passes.
-function generateBest(R, C, seeds) {
-  let best = null;
-  for (const s of seeds) {
-    const p = generatePuzzle(R, C, s);
-    if (p && (!best || p.passes > best.passes)) best = p;
-  }
-  return best;
 }
 
 // ---------- hints ----------
@@ -817,6 +833,86 @@ function makeHint(rows, cols, sol, cells) {
   };
 }
 
+// ---------- difficulty ----------
+// The grader replays the Hint engine from an empty board: each step applies the easiest deduction
+// on the board, ranked as in Hint. A step's effort is the number of open lines divided by the lines
+// that have a deduction (how hard the next move is to find), weighted by how subtle the deduction is
+// (index = Hint rank). Score = total effort per 100 cells. Line logic alone, so every step can be hinted.
+const GRADE_WEIGHTS = [1, 1.5, 1, 2.5, 2.5, 4];
+function gradePuzzle(rows, cols) {
+  const R = rows.length, C = cols.length;
+  const cells = Array.from({ length: R }, () => Array(C).fill(0));
+  const cache = new Map(); // a line is only re-explained when its known cells change
+  let effort = 0, steps = 0, fallbacks = 0;
+  for (let guard = 0; guard <= R * C; guard++) {
+    const { k, src } = hintKnown(rows, cols, cells);
+    let best = null, avail = 0, open = 0, axis = "", idx = 0;
+    const look = (key, clue, known, s, ctx, a, i) => {
+      if (known.includes(-1)) open++;
+      const sig = known.join("");
+      let hit = cache.get(key);
+      if (!hit || hit.sig !== sig) { hit = { sig, o: explainLine(clue, known, s, ctx) }; cache.set(key, hit); }
+      const o = hit.o;
+      if (!o) return;
+      avail++;
+      if (!best || o.rank < best.rank || (o.rank === best.rank && o.gain > best.gain)) { best = o; axis = a; idx = i; }
+    };
+    for (let r = 0; r < R; r++) look("r" + r, rows[r], k[r], src[r], { unit: "column", name: "", kind: "row" }, "r", r);
+    for (let c = 0; c < C; c++) look("c" + c, cols[c], k.map(x => x[c]), src.map(x => x[c]), { unit: "row", name: "", kind: "column" }, "c", c);
+    if (!best) return { solved: open === 0, score: Math.round(effort / (R * C) * 1000) / 10, steps, fallbacks };
+    effort += open / avail * GRADE_WEIGHTS[best.rank];
+    steps++;
+    if (best.type === "D") fallbacks++;
+    for (const t of best.targets) {
+      const r = axis === "r" ? idx : t.i, c = axis === "r" ? t.i : idx;
+      cells[r][c] = t.v ? 1 : 2;
+    }
+  }
+  return { solved: false, score: 0, steps, fallbacks };
+}
+
+const LEVELS = ["easy", "medium", "hard"];
+const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard" };
+// Score bands per size [Medium from, Hard from], calibrated 12 Nov 2026 on 200 puzzles per size from
+// the original generator (now Easy): Medium starts at its 90th percentile, Hard at about 3.5 times its median.
+const LEVEL_BANDS = { 10: [80, 160], 15: [120, 220], 20: [155, 280] };
+// Picture settings for Medium and Hard: plain noise, sparser for Hard.
+const LEVEL_PICTURE = { medium: { density: 0.45, spread: 0.06 }, hard: { density: 0.39, spread: 0.06 } };
+function levelBands(R, C) {
+  const n = Math.max(R, C), keys = Object.keys(LEVEL_BANDS).map(Number);
+  const near = keys.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+  return LEVEL_BANDS[near];
+}
+function levelOf(score, R, C) {
+  const [m, h] = levelBands(R, C);
+  return score < m ? "easy" : score < h ? "medium" : "hard";
+}
+// How far a score is from a level's band (0 = inside).
+function levelDistance(score, level, R, C) {
+  const [m, h] = levelBands(R, C);
+  const lo = level === "easy" ? 0 : level === "medium" ? m : h, hi = level === "easy" ? m : level === "medium" ? h : Infinity;
+  return score < lo ? lo - score : score >= hi ? score - hi + 1 : 0;
+}
+// One verified, graded candidate for a level. seeds: six for Easy (the original generator keeps
+// the one needing the most solver passes; here the first of those, by passes, that grades as Easy), one otherwise.
+// Candidates whose replay needs the Hint's general fallback text are skipped, so every hint can be explained.
+function levelCandidate(N, level, seeds) {
+  const graded = p => { const g = gradePuzzle(p.rows, p.cols); return g.solved && !g.fallbacks ? { ...p, score: g.score, level: levelOf(g.score, N, N) } : null; };
+  if (level === "easy") {
+    const ps = seeds.map(s => generatePuzzle(N, N, s)).filter(Boolean).sort((a, b) => b.passes - a.passes);
+    let closest = null;
+    for (const p of ps) {
+      const g = graded(p);
+      if (!g) continue;
+      if (g.level === "easy") return g;
+      if (!closest || g.score < closest.score) closest = g;
+    }
+    return closest;
+  }
+  const p = generatePuzzle(N, N, seeds[0], 600, LEVEL_PICTURE[level]);
+  return p && graded(p);
+}
+
 (function () {
   // ---------- storage (every call wrapped; in-memory copy keeps the page working without it) ----------
   const mem = {};
@@ -828,13 +924,26 @@ function makeHint(rows, cols, sol, cells) {
     set(k, v) { mem[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } },
     del(k) { mem[k] = null; try { localStorage.removeItem(k); } catch (e) { } }
   };
-  const GEN_KEY = "nonogram:generated", CUR_KEY = "nonogram:current", SIZE_KEY = "nonogram:size";
+  const GEN_KEY = "nonogram:generated", CUR_KEY = "nonogram:current", SIZE_KEY = "nonogram:size", LEVEL_KEY = "nonogram:level";
   const recKey = id => "nonogram:" + id;
   let generated = Array.isArray(store.get(GEN_KEY)) ? store.get(GEN_KEY) : [];
   const saveGenerated = () => store.set(GEN_KEY, generated);
   const allPuzzles = () => [...PUZZLES, ...generated];
   const findPuzzle = id => allPuzzles().find(p => p.id === id);
   const hasProgress = rec => !!rec && (!!rec.solvedAt || /[12]/.test(rec.cells || ""));
+  // A puzzle's level. Puzzles made before levels existed (and the built-in ones) are graded once with
+  // the same grader; generated ones keep the result.
+  const builtinLevels = {};
+  function levelFor(p) {
+    if (LEVELS.includes(p.level)) return p.level;
+    if (builtinLevels[p.id]) return builtinLevels[p.id];
+    const R = p.rows.length, C = p.cols.length, g = gradePuzzle(p.rows, p.cols);
+    const lv = levelOf(g.score, R, C);
+    if (generated.includes(p)) { p.level = lv; p.score = g.score; saveGenerated(); }
+    else builtinLevels[p.id] = lv;
+    return lv;
+  }
+  const levelName = p => LEVEL_NAMES[levelFor(p)];
 
   // ---------- puzzle state ----------
   let P, R, C, SOL, KEY;
@@ -984,7 +1093,7 @@ function makeHint(rows, cols, sol, cells) {
     if (on) {
       closeHint();
       highlight(null);
-      document.getElementById("bannerTitle").textContent = P.title;
+      document.getElementById("bannerTitle").textContent = `${P.title} · ${levelName(P)}`;
       setStatus("");
     }
     undoBtn.disabled = on || undoStack.length === 0;
@@ -1497,7 +1606,7 @@ function makeHint(rows, cols, sol, cells) {
     undoStack = []; stroke = null; hl = null; focus = { r: 0, c: 0 };
     lastHover = null; hoverStroke = 0; armed = 0; activePointer = null;
     clearTimeout(pressTimer); disarm();
-    metaEl.textContent = `No. ${P.number} · ${R} × ${C}`;
+    metaEl.textContent = `No. ${P.number} · ${R} × ${C} · ${levelName(P)}`;
     build(); load(); layout(); renderAll();
     setSolved(checkSolved());
     // Older saves have no solved date: add one without changing when it was last played.
@@ -1510,22 +1619,59 @@ function makeHint(rows, cols, sol, cells) {
 
   // ---------- new puzzle ----------
   let size = [10, 15, 20].includes(store.get(SIZE_KEY)) ? store.get(SIZE_KEY) : 15;
-  const sizeSeg = document.getElementById("sizeSeg");
+  let level = LEVELS.includes(store.get(LEVEL_KEY)) ? store.get(LEVEL_KEY) : "easy";
+  const sizeSeg = document.getElementById("sizeSeg"), levelSeg = document.getElementById("levelSeg");
   function renderSize() {
     sizeSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.size === size)));
+    levelSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === level)));
   }
   sizeSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-size]");
     if (!b) return;
     size = +b.dataset.size; store.set(SIZE_KEY, size); renderSize();
   });
+  levelSeg.addEventListener("click", e => {
+    const b = e.target.closest("button[data-level]");
+    if (!b) return;
+    level = b.dataset.level; store.set(LEVEL_KEY, level); renderSize();
+  });
   function randomSeeds(n) {
     const a = new Uint32Array(n);
     try { crypto.getRandomValues(a); } catch (e) { for (let i = 0; i < n; i++) a[i] = Math.floor(Math.random() * 4294967295); }
     return [...a].map(x => x || 1);
   }
-  function newPuzzle() {
-    const p = generateBest(size, size, randomSeeds(6)) || generateBest(size, size, randomSeeds(12));
+  // Candidates are made one at a time until one grades at the chosen level, with short pauses in
+  // between so the page stays responsive. After 2 seconds the closest one is used, labelled by its
+  // actual grade (in tests every puzzle hit its level well within that).
+  const BUDGET_MS = 2000;
+  const newBtns = [document.getElementById("newPuzzle"), document.getElementById("bannerNew")];
+  let making = null;
+  function makePuzzle(N, lv, done, sync) {
+    const t0 = performance.now();
+    let best = null;
+    const step = () => {
+      const c = levelCandidate(N, lv, randomSeeds(lv === "easy" ? 6 : 1));
+      if (c) {
+        const d = levelDistance(c.score, lv, N, N);
+        if (!best || d < best.d) best = { p: c, d };
+      }
+      return (best && best.d === 0) || performance.now() - t0 > BUDGET_MS;
+    };
+    if (sync) { while (!step()); done(best && best.p); return; }
+    const token = making = {};
+    newBtns.forEach(b => (b.disabled = true));
+    const note = setTimeout(() => setStatus("Making puzzle…"), 300);
+    const tick = () => {
+      if (making !== token) return;
+      if (!step()) { setTimeout(tick, 0); return; }
+      clearTimeout(note); making = null;
+      newBtns.forEach(b => (b.disabled = false));
+      if (statusEl.textContent === "Making puzzle…") setStatus("");
+      done(best && best.p);
+    };
+    setTimeout(tick, 0);
+  }
+  function addPuzzle(p) {
     if (!p) {
       if (!P) openPuzzle(PUZZLES[0].id); // nothing open yet (first visit): fall back to the built-in puzzle
       showView("play"); setStatus("Couldn't make a puzzle this time. Try again.", "bad"); return;
@@ -1534,13 +1680,16 @@ function makeHint(rows, cols, sol, cells) {
     // Patterns are numbered on their own, so a first-time visitor starts with Pattern No. 1.
     const number = Math.max(0, ...generated.map(q => q.number || 0)) + 1;
     const id = "gen-" + Date.now().toString(36) + randomSeeds(1)[0].toString(36).slice(0, 4);
-    generated.push({ id, number, title: `Pattern No. ${number}`, created: Date.now(), rows: p.rows, cols: p.cols, solution: p.solution });
+    generated.push({ id, number, title: `Pattern No. ${number}`, created: Date.now(), level: p.level, score: p.score, rows: p.rows, cols: p.cols, solution: p.solution });
     saveGenerated();
     showView("play");
     openPuzzle(id);
   }
-  document.getElementById("newPuzzle").addEventListener("click", newPuzzle);
-  document.getElementById("bannerNew").addEventListener("click", newPuzzle);
+  function newPuzzle() {
+    if (making) return;
+    makePuzzle(size, level, addPuzzle);
+  }
+  newBtns.forEach(b => b.addEventListener("click", newPuzzle));
 
   // ---------- history ----------
   let view = "play", filter = "all";
@@ -1646,7 +1795,7 @@ function makeHint(rows, cols, sol, cells) {
       title.textContent = item.p.title;
       const sub = document.createElement("span");
       sub.className = "hsub";
-      const dims = `${item.p.solution.length} × ${item.p.solution[0].length}`;
+      const dims = `${item.p.solution.length} × ${item.p.solution[0].length} · ${levelName(item.p)}`;
       const isCur = P && item.p.id === P.id ? " · Current" : "";
       sub.textContent = item.isSolved
         ? `${dims} · Solved${item.rec.solvedAt ? " " + when(item.rec.solvedAt) : ""}${isCur}`
@@ -1678,9 +1827,19 @@ function makeHint(rows, cols, sol, cells) {
 
   // ---------- start ----------
   renderSize();
-  // Resume the puzzle you were on; a first visit (or a puzzle that no longer exists) starts a new random one.
+  // Resume the puzzle you were on; a first visit (or a puzzle that no longer exists) starts a new random one,
+  // made straight away as nothing is open yet.
   const cur = store.get(CUR_KEY);
-  if (cur && findPuzzle(cur)) openPuzzle(cur); else newPuzzle();
+  if (cur && findPuzzle(cur)) openPuzzle(cur); else makePuzzle(size, level, addPuzzle, true);
+  // Grade puzzles made before levels existed, one at a time in the background, so History has their levels.
+  const ungraded = generated.filter(p => !LEVELS.includes(p.level));
+  const gradeNext = () => {
+    const p = ungraded.shift();
+    if (!p) return;
+    if (generated.includes(p)) levelFor(p);
+    setTimeout(gradeNext, 30);
+  };
+  setTimeout(gradeNext, 500);
 })();
 </script>
 
