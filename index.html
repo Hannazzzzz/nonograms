@@ -209,11 +209,12 @@ button.danger { border-color: var(--error); color: var(--error); }
 .new-card h2 + h3 { margin-top: 4px; }
 .new-card .seg { display: flex; }
 .new-card .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
-/* Four levels: two rows of two. */
+/* Five levels: two rows of two, then Look mum no hands across the full width. */
 #levelSeg { display: grid; grid-template-columns: 1fr 1fr; }
 #levelSeg button + button { border-left: 0; }
 #levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
 #levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
+#levelSeg button:nth-child(5) { grid-column: 1 / -1; }
 .new-card .wi-actions { margin-top: 16px; }
 /* Sizes: one row of five; on narrow screens 3 + 2 (Custom twice as wide). 1px gaps show the line colour. */
 #sizeSeg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line-strong); }
@@ -361,7 +362,7 @@ html.focus { touch-action: pan-x pan-y; }
 html.focus body { padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 24px max(8px, env(safe-area-inset-left, 0px)); }
 html.focus .wrap, html.focus .view, html.focus .side { gap: 8px; }
 html.focus .top, html.focus .help, html.focus .legend,
-html.focus #clearMistakes, html.focus #reset { display: none !important; }
+html.focus #reset { display: none !important; }
 html.focus .toolbar { flex-wrap: nowrap; gap: 6px; }
 html.focus .actions { flex-wrap: nowrap; gap: 6px; }
 html.focus .toolbar button { font-size: 0.8rem; min-height: 34px; padding: 4px 9px; gap: 4px; }
@@ -422,7 +423,6 @@ html.focus .toolbar { flex-wrap: wrap; }
         <button id="check" title="Hold to show mistakes"><span class="lbl-long">Hold to check</span><span class="lbl-short">Check</span></button>
         <button id="hintBtn" title="Hint (H)">Hint</button>
         <button id="whatIfBtn" title="What if (W)" aria-pressed="false" hidden>What if</button>
-        <button id="clearMistakes">Clear lines with mistakes</button>
         <button id="reset">Reset</button>
         <button id="zoomBtn" class="zoom-btn" aria-pressed="false" title="Bigger grid, smaller controls">
           <svg class="ico ico-in" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
@@ -488,6 +488,7 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button data-level="medium" aria-pressed="false">Medium</button>
           <button data-level="hard" aria-pressed="false">Hard</button>
           <button data-level="giveup" aria-pressed="false">Just give up</button>
+          <button data-level="nohands" aria-pressed="false">Look mum no hands</button>
         </div>
         <div class="wi-actions">
           <button id="newMake" class="primary">Make puzzle</button>
@@ -503,7 +504,7 @@ html.focus .toolbar { flex-wrap: wrap; }
 
     <section class="help">
       <h2>Keyboard</h2>
-      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Just give up), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Just give up, Look mum no hands), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
       <p><a href="https://activityworkshop.net/puzzlesgames/nonograms/tutorial.html" target="_blank" rel="noopener">How to solve a nonogram</a></p>
     </section>
   </section>
@@ -962,12 +963,13 @@ function explainLine(clue, known, src, ctx) {
 
 // The hint for the whole board: a mistake first, otherwise the easiest line deduction.
 // sol: 0/1 grid. cells: 0 blank, 1 filled, 2 crossed. Returns null when there's nothing left to find.
-function makeHint(rows, cols, sol, cells) {
+// where: name the row of the first mistake (Hard has no Check button, so the hint says where to look).
+function makeHint(rows, cols, sol, cells, where = false) {
   const R = rows.length, C = cols.length;
   for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
     const v = cells[r][c];
     if ((v === 1 && !sol[r][c]) || (v === 2 && sol[r][c])) {
-      return { kind: "mistake", steps: [{ text: "There's a mistake on the board. Use the Hold to check button to find it." }] };
+      return { kind: "mistake", steps: [{ text: where ? `There's a mistake in row ${r + 1}.` : "There's a mistake on the board. Use the Hold to check button to find it." }] };
     }
   }
   if (cells.every((row, r) => row.every((v, c) => (v === 1) === !!sol[r][c]))) return null;
@@ -1034,8 +1036,13 @@ function gradePuzzle(rows, cols) {
   return { solved: false, score: 0, steps, fallbacks, whatIfs };
 }
 
-const LEVELS = ["easy", "medium", "hard", "giveup"];
-const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Just give up" };
+const LEVELS = ["easy", "medium", "hard", "giveup", "nohands"];
+const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Just give up", nohands: "Look mum no hands" };
+// "Look mum no hands" (added 14 Nov 2026): Just give up puzzles with What if, but no Check and no Hint.
+// Hard has no Check either; its Hint names the row of a mistake instead.
+const usesWhatIf = lv => lv === "giveup" || lv === "nohands";
+const hasCheck = lv => lv !== "hard" && lv !== "nohands";
+const hasHint = lv => lv !== "nohands";
 // Score bands per size [Medium from, Hard from], calibrated 12 Nov 2026 on 200 puzzles per size from
 // the original generator (now Easy): Medium starts at its 90th percentile, Hard at about 3.5 times its median.
 // 40 added 14 Nov 2026 (custom sizes): on big boards every generator lands at much the same scores, so the
@@ -1068,7 +1075,7 @@ function levelDistance(score, level, R, C) {
 // Rough time to make a puzzle in ms: [time at 400 cells, power of cells], fitted to Chromium runs (14 Nov 2026):
 // 40 × 40 means were about 0.5s Easy, 1.8s Medium, 2.7s Hard and 9s Just give up.
 // Used for the progress shown while making, and the time limits.
-const MAKE_TIME = { easy: [60, 1.5], medium: [100, 2], hard: [250, 1.75], giveup: [430, 2.2] };
+const MAKE_TIME = { easy: [60, 1.5], medium: [100, 2], hard: [250, 1.75], giveup: [430, 2.2], nohands: [430, 2.2] };
 function makeEstimate(R, C, level) {
   const [a, p] = MAKE_TIME[level] || MAKE_TIME.easy;
   return Math.max(30, a * Math.pow(R * C / 400, p));
@@ -1902,13 +1909,12 @@ function whatIfHint(rows, cols, k) {
     }
     return out;
   }
-  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
   // Check: mistakes are outlined only while the button is held down.
   const checkBtn = document.getElementById("check");
   let checkHeld = false;
   function showMistakes() {
-    if (solved || checkHeld) return;
+    if (solved || checkHeld || !hasCheck(levelFor(P))) return;
     checkHeld = true;
     clearErrors();
     const wrong = findMistakes();
@@ -1931,25 +1937,6 @@ function whatIfHint(rows, cols, k) {
     if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); showMistakes(); }
   });
   checkBtn.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") hideMistakes(); });
-
-  // Clear every row and column that contains a mistake (one undo step).
-  document.getElementById("clearMistakes").addEventListener("click", () => {
-    if (solved) return;
-    const wrong = findMistakes();
-    if (!wrong.length) { setStatus("There are no mistakes to clear.", "good"); return; }
-    const rows = new Set(wrong.map(m => m.r)), cols = new Set(wrong.map(m => m.c));
-    const changes = new Map();
-    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
-      if (!rows.has(r) && !cols.has(c)) continue;
-      if (!cells[r][c] && !cand[r][c]) continue;
-      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c], t: tent[r][c] });
-      cells[r][c] = 0; cand[r][c] = 0;
-    }
-    clearErrors();
-    undoStack.push(changes);
-    save(); renderAll(); hintAfterChange();
-    setStatus(`Cleared ${plural(rows.size, "row", "rows")} and ${plural(cols.size, "column", "columns")} with mistakes. Undo brings them back.`);
-  });
 
   let resetArmed = null;
   resetBtn.addEventListener("click", () => {
@@ -1984,16 +1971,18 @@ function whatIfHint(rows, cols, k) {
   const wiPopText = document.getElementById("wiPopText");
   function renderWi() {
     if (!P) return;
-    const offered = levelFor(P) === "giveup" && !solved;
-    const btnWas = whatIfBtn.hidden;
+    const lv = levelFor(P), offered = usesWhatIf(lv) && !solved;
+    const btnWas = [whatIfBtn.hidden, checkBtn.hidden, hintBtn.hidden].join();
     whatIfBtn.hidden = !offered;
+    checkBtn.hidden = !hasCheck(lv); // no Check on Hard and Look mum no hands
+    hintBtn.hidden = !hasHint(lv); // no Hint on Look mum no hands
     whatIfBtn.setAttribute("aria-pressed", String(wiOn));
     board.classList.toggle("wi-on", wiOn);
     if (!wiOn) closeWiPop();
-    if (btnWas !== whatIfBtn.hidden) requestAnimationFrame(layout); // toolbar height changed
+    if (btnWas !== [whatIfBtn.hidden, checkBtn.hidden, hintBtn.hidden].join()) requestAnimationFrame(layout); // toolbar height changed
   }
   function toggleWhatIf() {
-    if (solved || view !== "play" || levelFor(P) !== "giveup" || stroke) return;
+    if (solved || view !== "play" || !usesWhatIf(levelFor(P)) || stroke) return;
     if (wiOn && hasTent()) { openWiPop(); return; }
     wiOn = !wiOn; wiAt = null;
     setStatus("");
@@ -2109,8 +2098,8 @@ function whatIfHint(rows, cols, k) {
     applyHintHL();
   }
   function openHint() {
-    if (solved || view !== "play") return;
-    const h = makeHint(P.rows, P.cols, SOL, cells);
+    if (solved || view !== "play" || !hasHint(levelFor(P))) return;
+    const h = makeHint(P.rows, P.cols, SOL, cells, levelFor(P) === "hard");
     if (!h) return;
     clearTimeout(hintFade);
     const wasHidden = hintEl.hidden;
@@ -2215,8 +2204,8 @@ function whatIfHint(rows, cols, k) {
   const sizeSeg = document.getElementById("sizeSeg"), levelSeg = document.getElementById("levelSeg");
   const customBox = document.getElementById("customSize"), customC = document.getElementById("customC"), customR = document.getElementById("customR");
   const customNote = document.getElementById("customNote");
-  // "Just give up" needs more than 100 cells (Hanna's choice: no 10 × 10).
-  const offered = (lv, sz) => lv !== "giveup" || sz.c * sz.r > 100;
+  // "Just give up" and "Look mum no hands" need more than 100 cells (Hanna's choice: no 10 × 10).
+  const offered = (lv, sz) => !usesWhatIf(lv) || sz.c * sz.r > 100;
   if (!offered(level, size)) size = { c: 15, r: 15 };
   // The pop-up starts on the last size and level used; a choice is saved only when Make puzzle is pressed.
   // pickSize is null while the custom fields hold something that isn't a valid size.
@@ -2296,7 +2285,7 @@ function whatIfHint(rows, cols, k) {
   // actual grade: 2 seconds, or 5 times the expected time on big boards.
   // "Just give up" works in slices of 40ms; after its limit (10 seconds, or 4 times the expected time)
   // the closest one so far is used, and it stops at 30 seconds (or 8 times the expected time).
-  const budgets = (lv, est) => lv === "giveup" ? [Math.max(10000, 4 * est), Math.max(30000, 8 * est)] : [Math.max(2000, 5 * est), Infinity];
+  const budgets = (lv, est) => usesWhatIf(lv) ? [Math.max(10000, 4 * est), Math.max(30000, 8 * est)] : [Math.max(2000, 5 * est), Infinity];
   const newBtns = [document.getElementById("newPuzzle"), document.getElementById("bannerNew")];
   let making = null;
   // Progress while making: spinner, share done and the expected total time. When it runs over, the
@@ -2320,12 +2309,12 @@ function whatIfHint(rows, cols, k) {
     const R = sz.r, C = sz.c, t0 = performance.now();
     const est = makeEstimate(R, C, lv), [budget, limit] = budgets(lv, est);
     let best = null;
-    const gen = lv === "giveup" ? giveUpPuzzles(R, C, makeRng(randomSeeds(1)[0])) : null;
+    const gen = usesWhatIf(lv) ? giveUpPuzzles(R, C, makeRng(randomSeeds(1)[0])) : null;
     const step = gen ? () => {
       const t = performance.now();
       let r;
       do { r = gen.next().value; } while (!r.done && performance.now() - t < 40);
-      if (r.p) best = { p: r.p, d: r.p.d };
+      if (r.p) best = { p: { ...r.p, level: lv }, d: r.p.d }; // Look mum no hands: Just give up puzzles
       const spent = performance.now() - t0;
       return r.done || (best && spent > budget) || spent > limit;
     } : () => {
