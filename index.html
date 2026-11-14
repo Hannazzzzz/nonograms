@@ -1056,8 +1056,6 @@ function levelCandidate(N, level, seeds) {
   function clueSpan(n, key) {
     const s = Object.assign(document.createElement("span"), { textContent: n });
     s.dataset.k = key;
-    // A click handler makes the number a tap target, so phones don't move a tap on it onto the next cell.
-    s.addEventListener("click", () => {});
     return s;
   }
   function build() {
@@ -1094,6 +1092,8 @@ function levelCandidate(N, level, seeds) {
     }
     // Frame around the block of cells only (not the clues), used by Hold to check.
     board.appendChild(Object.assign(document.createElement("div"), { className: "grid-frame" }));
+    // A click handler makes each clue number a tap target, so phones don't move a tap on it onto the next cell.
+    board.querySelectorAll(".cclue span, .rclue span").forEach(s => s.addEventListener("click", () => {}));
   }
 
   // ---------- sizing ----------
