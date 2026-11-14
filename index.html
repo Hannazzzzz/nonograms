@@ -123,8 +123,8 @@ button.danger { border-color: var(--error); color: var(--error); }
   transition: color 0.2s;
 }
 .cclue span, .rclue span { cursor: pointer; }
-/* Clue numbers are greyed out by tapping them (no automatic greying); 0 and a solved board are always grey. */
-.cclue span.done, .rclue span.done, .cclue span.zero, .rclue span.zero,
+/* Clue numbers are greyed out by tapping them (no automatic greying, 0 included); a solved board is always grey. */
+.cclue span.done, .rclue span.done,
 .board.solved .cclue span, .board.solved .rclue span { color: var(--done); }
 .cclue.hl, .rclue.hl { background: var(--accent-soft); border-radius: 4px; }
 
@@ -984,7 +984,7 @@ function levelCandidate(N, level, seeds) {
   // ---------- build ----------
   function clueSpan(n, key) {
     const s = Object.assign(document.createElement("span"), { textContent: n });
-    if (n === 0) s.className = "zero"; else s.dataset.k = key;
+    s.dataset.k = key;
     return s;
   }
   function build() {
@@ -1228,7 +1228,7 @@ function levelCandidate(N, level, seeds) {
     const s = clueFromPoint(e.target, e.clientX, e.clientY);
     if (!s) return;
     e.preventDefault();
-    if (solved || !s.dataset.k || e.button > 0) return;
+    if (solved || e.button > 0) return;
     const k = s.dataset.k;
     if (done.has(k)) done.delete(k); else done.add(k);
     renderClues(); save();
