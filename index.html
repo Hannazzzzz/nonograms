@@ -215,6 +215,42 @@ button.danger { border-color: var(--error); color: var(--error); }
 #levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
 #levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
 .new-card .wi-actions { margin-top: 16px; }
+/* Sizes: one row of five; on narrow screens 3 + 2 (Custom twice as wide). 1px gaps show the line colour. */
+#sizeSeg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line-strong); }
+#sizeSeg button + button { border-left: 0; }
+#sizeSeg button { white-space: nowrap; }
+@media (max-width: 420px) {
+  #sizeSeg { grid-template-columns: repeat(3, 1fr); }
+  #sizeSeg button[data-size="custom"] { grid-column: span 2; }
+}
+/* Custom size: columns and rows, 5 to 40, with − and + buttons. */
+.new-card { max-width: 380px; }
+.custom-size { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; margin-top: 10px; }
+.custom-size label { font-size: 0.9rem; }
+.stepper { display: flex; justify-content: flex-end; }
+.stepper button { min-width: 40px; justify-content: center; font-size: 1.1rem; padding: 6px 0; }
+.stepper button:first-child { border-radius: 8px 0 0 8px; }
+.stepper button:last-child { border-radius: 0 8px 8px 0; }
+.stepper input {
+  width: 4.2em; text-align: center; font: 500 1rem var(--font-body); color: var(--fg); background: var(--paper);
+  border: 1px solid var(--line-strong); border-left: 0; border-right: 0; min-height: 38px; padding: 0; -moz-appearance: textfield; appearance: textfield;
+}
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.custom-note { grid-column: 1 / -1; margin: 0; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+.custom-note.bad { color: var(--error); }
+/* Making a puzzle: spinner, progress and a Stop button, floating at the bottom of the screen
+   (fixed, so it shows wherever the board ends and doesn't change the layout). */
+.making {
+  position: fixed; z-index: 15; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; width: min(460px, calc(100vw - 24px)); /* fixed width: Stop doesn't move as the text changes */
+  background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); font-size: 0.95rem; color: var(--fg);
+}
+.making[hidden] { display: none; }
+#makingText { flex: 1; font-variant-numeric: tabular-nums; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.making button { min-height: 30px; padding: 4px 10px; }
 #whatIfBtn[aria-pressed="true"] { background: var(--wi); border-color: var(--wi); color: #fff; }
 .board.solved .cell { cursor: default; }
 .board.solved .cell.s2::before, .board.solved .cell.s2::after { opacity: 0; transition: opacity 0.6s; }
@@ -416,6 +452,7 @@ html.focus .toolbar { flex-wrap: wrap; }
     </section>
 
     <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="making" id="making" role="status" hidden><span class="spinner" aria-hidden="true"></span><span id="makingText"></span><button type="button" id="makingStop">Stop</button></div>
     <div class="wi-pop" id="wiPop" hidden>
       <div class="wi-card" role="dialog" aria-modal="true" aria-labelledby="wiPopTitle">
         <h2 id="wiPopTitle">End the what-if?</h2>
@@ -435,6 +472,15 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button data-size="10" aria-pressed="false">10 × 10</button>
           <button data-size="15" aria-pressed="true">15 × 15</button>
           <button data-size="20" aria-pressed="false">20 × 20</button>
+          <button data-size="20x15" aria-pressed="false" title="20 columns, 15 rows">20 × 15</button>
+          <button data-size="custom" aria-pressed="false" aria-controls="customSize">Custom</button>
+        </div>
+        <div class="custom-size" id="customSize" hidden>
+          <label for="customC">Columns</label>
+          <div class="stepper"><button data-step="c" data-d="-1" aria-label="Fewer columns">−</button><input id="customC" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="c" data-d="1" aria-label="More columns">+</button></div>
+          <label for="customR">Rows</label>
+          <div class="stepper"><button data-step="r" data-d="-1" aria-label="Fewer rows">−</button><input id="customR" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="r" data-d="1" aria-label="More rows">+</button></div>
+          <p class="custom-note" id="customNote" aria-live="polite"></p>
         </div>
         <h3 id="levelLbl">Level</h3>
         <div class="seg" role="group" aria-labelledby="levelLbl" id="levelSeg">
@@ -620,7 +666,8 @@ function randomPicture(R, C, rnd, opts) {
 }
 
 // Generate a picture whose clues are uniquely solvable by line logic alone.
-// When the solver gets stuck, flip one unresolved cell and try again.
+// When the solver gets stuck, flip unresolved cells and try again: one at a time for Easy up to 20 × 20,
+// otherwise a share of them at once (much faster on big boards, same spread of difficulty).
 // opts: picture settings for Medium and Hard (see LEVEL_PICTURE); none for Easy.
 function generatePuzzle(R, C, seed, maxTries = 400, opts) {
   const rnd = makeRng(seed);
@@ -629,18 +676,26 @@ function generatePuzzle(R, C, seed, maxTries = 400, opts) {
   const minFill = opts ? 0.3 : 0.35, minPasses = opts ? 1 : 3;
   for (let t = 0; t < maxTries; t++) {
     const rows = pic.map(clueOf), cols = [...Array(C).keys()].map(c => clueOf(pic.map(row => row[c])));
-    const res = lineSolve(rows, cols);
     const fill = pic.flat().reduce((a, b) => a + b, 0) / (R * C);
-    if (res.solved && res.passes >= minPasses && fill > minFill && fill < 0.75) {
-      return { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), passes: res.passes, tries: t, restarts };
+    if (fill <= minFill || fill >= 0.75) { pic = randomPicture(R, C, rnd, opts); restarts++; continue; }
+    const res = quickSolve(rows, cols);
+    if (res.solved) {
+      const passes = lineSolve(rows, cols).passes;
+      if (passes >= minPasses) return { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), passes, tries: t, restarts };
+      pic = randomPicture(R, C, rnd, opts); restarts++; continue;
     }
-    if (res.solved || fill <= minFill || fill >= 0.75) { pic = randomPicture(R, C, rnd, opts); restarts++; continue; }
     const unknown = [];
-    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (res.grid[r][c] === -1) unknown.push([r, c]);
-    const [r, c] = unknown[Math.floor(rnd() * unknown.length)];
-    pic[r][c] ^= 1;
+    for (let i = 0; i < R * C; i++) if (res.g[i] === -1) unknown.push(i);
+    const k = opts ? Math.max(1, Math.floor(unknown.length / 30)) : R * C > 400 ? Math.max(1, Math.floor(unknown.length / 120)) : 1;
+    for (let j = 0; j < k; j++) { const i = unknown[Math.floor(rnd() * unknown.length)]; pic[(i / C) | 0][i % C] ^= 1; }
   }
   return null;
+}
+// Line logic on a flat grid (-1 unknown, 0 empty, 1 filled), using the fast queue-based solver.
+function quickSolve(rows, cols) {
+  const R = rows.length, C = cols.length, g = new Int8Array(R * C).fill(-1);
+  const res = wiPropagate(rows, cols, g, [...Array(R).keys()], [...Array(C).keys()]);
+  return { solved: res.ok && !g.includes(-1), g };
 }
 
 // ---------- hints ----------
@@ -981,17 +1036,23 @@ function gradePuzzle(rows, cols) {
 
 const LEVELS = ["easy", "medium", "hard", "giveup"];
 const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Just give up" };
-// "Just give up" isn't offered at 10 × 10 (Hanna's choice).
-const LEVEL_SIZES = { giveup: [15, 20] };
 // Score bands per size [Medium from, Hard from], calibrated 12 Nov 2026 on 200 puzzles per size from
 // the original generator (now Easy): Medium starts at its 90th percentile, Hard at about 3.5 times its median.
-const LEVEL_BANDS = { 10: [80, 160], 15: [120, 220], 20: [155, 280] };
+// 40 added 14 Nov 2026 (custom sizes): on big boards every generator lands at much the same scores, so the
+// bands there are set so that each level's generator hits its band often enough (Hard about 1 in 5).
+const LEVEL_BANDS = { 10: [80, 160], 15: [120, 220], 20: [155, 280], 40: [265, 390] };
 // Picture settings for Medium, Hard and Just give up: plain noise, sparser for Hard.
 const LEVEL_PICTURE = { medium: { density: 0.45, spread: 0.06 }, hard: { density: 0.39, spread: 0.06 }, giveup: { density: 0.42, spread: 0.08 } };
+// Bands for any size: by the side of a square with the same number of cells, straight lines between the
+// calibrated sizes (below 10, the 10 to 15 line continued, with a floor).
 function levelBands(R, C) {
-  const n = Math.max(R, C), keys = Object.keys(LEVEL_BANDS).map(Number);
-  const near = keys.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
-  return LEVEL_BANDS[near];
+  const n = Math.sqrt(R * C), keys = Object.keys(LEVEL_BANDS).map(Number).sort((a, b) => a - b);
+  let i = keys.findIndex(k => k >= n);
+  if (i === -1) i = keys.length - 1;
+  if (i === 0) i = 1;
+  const a = keys[i - 1], b = keys[i], t = (n - a) / (b - a);
+  const lerp = j => Math.round(LEVEL_BANDS[a][j] + t * (LEVEL_BANDS[b][j] - LEVEL_BANDS[a][j]));
+  return [Math.max(20, lerp(0)), Math.max(50, lerp(1))];
 }
 function levelOf(score, R, C, whatIfs) {
   if (whatIfs) return "giveup";
@@ -1004,13 +1065,31 @@ function levelDistance(score, level, R, C) {
   const lo = level === "easy" ? 0 : level === "medium" ? m : h, hi = level === "easy" ? m : level === "medium" ? h : Infinity;
   return score < lo ? lo - score : score >= hi ? score - hi + 1 : 0;
 }
+// Rough time to make a puzzle in ms: [time at 400 cells, power of cells], fitted to Chromium runs (14 Nov 2026):
+// 40 × 40 means were about 0.5s Easy, 1.8s Medium, 2.7s Hard and 9s Just give up.
+// Used for the progress shown while making, and the time limits.
+const MAKE_TIME = { easy: [60, 1.5], medium: [100, 2], hard: [250, 1.75], giveup: [430, 2.2] };
+function makeEstimate(R, C, level) {
+  const [a, p] = MAKE_TIME[level] || MAKE_TIME.easy;
+  return Math.max(30, a * Math.pow(R * C / 400, p));
+}
+function timeText(ms) {
+  const s = ms / 1000;
+  if (s < 1.5) return "a second";
+  if (s < 10) return `${Math.round(s)} seconds`;
+  if (s < 60) return `${Math.round(s / 5) * 5} seconds`;
+  const m = Math.round(s / 60);
+  return m === 1 ? "a minute" : `${m} minutes`;
+}
 // One verified, graded candidate for a level. seeds: six for Easy (the original generator keeps
 // the one needing the most solver passes; here the first of those, by passes, that grades as Easy), one otherwise.
 // Candidates whose replay needs the Hint's general fallback text are skipped, so every hint can be explained.
-function levelCandidate(N, level, seeds) {
-  const graded = p => { const g = gradePuzzle(p.rows, p.cols); return g.solved && !g.fallbacks ? { ...p, score: g.score, level: levelOf(g.score, N, N) } : null; };
+function levelCandidate(R, C, level, seeds) {
+  const graded = p => { const g = gradePuzzle(p.rows, p.cols); return g.solved && !g.fallbacks ? { ...p, score: g.score, level: levelOf(g.score, R, C) } : null; };
+  // More tries on bigger boards (400 was tuned for 15 × 15).
+  const tries = Math.max(400, Math.round(R * C * 1.8));
   if (level === "easy") {
-    const ps = seeds.map(s => generatePuzzle(N, N, s)).filter(Boolean).sort((a, b) => b.passes - a.passes);
+    const ps = seeds.map(s => generatePuzzle(R, C, s, tries)).filter(Boolean).sort((a, b) => b.passes - a.passes);
     let closest = null;
     for (const p of ps) {
       const g = graded(p);
@@ -1020,7 +1099,7 @@ function levelCandidate(N, level, seeds) {
     }
     return closest;
   }
-  const p = generatePuzzle(N, N, seeds[0], 600, LEVEL_PICTURE[level]);
+  const p = generatePuzzle(R, C, seeds[0], tries, LEVEL_PICTURE[level]);
   return p && graded(p);
 }
 
@@ -1159,35 +1238,42 @@ function wiSolve(rows, cols) {
 // finish such a board). Kept when the number of what-ifs is inside WHATIF_RANGE; yields { done, p }
 // after each try (p: the closest so far).
 const WHATIF_RANGE = { 15: [3, 12], 20: [4, 16] };
-function* giveUpPuzzles(N, rnd) {
-  const [lo, hi] = WHATIF_RANGE[N >= 18 ? 20 : 15];
-  const pic0 = () => randomPicture(N, N, rnd, LEVEL_PICTURE.giveup);
+function whatIfRange(R, C) {
+  const n = Math.sqrt(R * C);
+  return [n < 17.5 ? 3 : 4, Math.round(12 + 0.8 * (n - 15))];
+}
+function* giveUpPuzzles(R, C, rnd) {
+  const [lo, hi] = whatIfRange(R, C), N2 = R * C, maxTries = Math.max(600, Math.round(N2 * 1.5));
+  const pic0 = () => randomPicture(R, C, rnd, LEVEL_PICTURE.giveup);
   let pic = pic0(), tries = 0, closest = null;
   for (;;) {
     tries++;
-    const rows = pic.map(clueOf), cols = [...Array(N).keys()].map(c => clueOf(pic.map(row => row[c])));
-    const fill = pic.flat().reduce((a, b) => a + b, 0) / (N * N);
-    if (fill <= 0.3 || fill >= 0.75 || tries > 600) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
-    const ls = lineSolve(rows, cols);
-    const open = ls.grid.reduce((a, row) => a + row.filter(v => v === -1).length, 0);
+    const rows = pic.map(clueOf), cols = [...Array(C).keys()].map(c => clueOf(pic.map(row => row[c])));
+    const fill = pic.flat().reduce((a, b) => a + b, 0) / N2;
+    if (fill <= 0.3 || fill >= 0.75 || tries > maxTries) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
+    const ls = quickSolve(rows, cols);
+    let open = 0;
+    for (let i = 0; i < N2; i++) if (ls.g[i] === -1) open++;
     if (ls.solved) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
-    const res = open > N * N / 2 ? { solved: false, g: Int8Array.from(ls.grid.flat()) } : wiSolve(rows, cols);
+    const res = open > N2 / 2 ? { solved: false, g: ls.g } : wiSolve(rows, cols);
     if (res.solved) {
-      if (res.whatIfs) {
+      const d = res.whatIfs < lo ? lo - res.whatIfs : res.whatIfs > hi ? res.whatIfs - hi : 0;
+      // Grading is the slow part on big boards: only grade a board that would be closer than the best so far.
+      if (res.whatIfs && (!closest || d < closest.d)) {
         const g = gradePuzzle(rows, cols);
         if (g.solved && !g.fallbacks && g.whatIfs) {
           const p = { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), score: g.score, whatIfs: res.whatIfs, level: "giveup" };
-          const d = res.whatIfs < lo ? lo - res.whatIfs : res.whatIfs > hi ? res.whatIfs - hi : 0;
-          if (!closest || d < closest.d) closest = { ...p, d };
+          closest = { ...p, d };
           if (!d) { yield { done: true, p: closest }; return; }
         }
       }
       pic = pic0(); tries = 0; yield { done: false, p: closest }; continue;
     }
     const unknown = [];
-    for (let i = 0; i < N * N; i++) if (res.g[i] === -1) unknown.push(i);
-    const i = unknown[Math.floor(rnd() * unknown.length)];
-    pic[(i / N) | 0][i % N] ^= 1;
+    for (let i = 0; i < N2; i++) if (res.g[i] === -1) unknown.push(i);
+    // Big boards with most cells open: flip several at once (one in 30 of the open cells).
+    const k = open > N2 / 2 ? Math.max(1, Math.floor(unknown.length / 30)) : 1;
+    for (let j = 0; j < k; j++) { const i = unknown[Math.floor(rnd() * unknown.length)]; pic[(i / C) | 0][i % C] ^= 1; }
     yield { done: false, p: closest };
   }
 }
@@ -1378,7 +1464,8 @@ function whatIfHint(rows, cols, k) {
                     : { f: 0.5, min: 9, max: 20, gap: 0.45, pad: 10, colPad: 8, below: 16, hintGap: 14 };
     const rowW = fs => Math.ceil(Math.max(...P.rows.map(cl =>
       cl.reduce((s, n) => s + String(n).length * 0.62 * fs, 0) + (cl.length - 1) * k.gap * fs)) + k.pad);
-    const fsOf = cell => Math.min(k.max, Math.max(k.min, Math.round(cell * k.f)));
+    // Clue font: half the cell, within limits; below 12px cells the lower limit drops with the cell (to 5px).
+    const fsOf = cell => Math.min(k.max, Math.max(Math.min(k.min, Math.max(5, cell - 2)), Math.round(cell * k.f)));
     const vh = visibleHeight();
     // An open hint panel sits under the board: keep room for it so both fit on screen.
     const hintEl = document.getElementById("hint");
@@ -1387,9 +1474,10 @@ function whatIfHint(rows, cols, k) {
     const fitsHeight = cell => Math.ceil(maxCol * fsOf(cell) * 1.2 + k.colPad) + R * cell <= H;
     const fitsWidth = (cell, w) => rowW(fsOf(cell)) + C * cell + 4 <= w;
     let cell = 56;
-    while (cell > 12 && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
+    // Down to 4px cells if needed (Hanna's choice, 14 Nov 2026: big boards on phones shrink rather than scroll).
+    while (cell > 4 && !(fitsWidth(cell, W) && fitsHeight(cell))) cell--;
     const fs = fsOf(cell), rowClueW = rowW(fs);
-    cell = Math.max(12, cell);
+    cell = Math.max(4, cell);
     const colClueH = Math.ceil(maxCol * fs * 1.2 + k.colPad);
     board.style.setProperty("--cell", cell + "px");
     board.style.setProperty("--clue-fs", fs + "px");
@@ -2100,7 +2188,7 @@ function whatIfHint(rows, cols, k) {
     undoStack = []; stroke = null; hl = null; focus = { r: 0, c: 0 };
     lastHover = null; hoverStroke = 0; armed = 0; activePointer = null;
     clearTimeout(pressTimer); disarm();
-    metaEl.textContent = `No. ${P.number} · ${R} × ${C} · ${levelName(P)}`;
+    metaEl.textContent = `No. ${P.number} · ${C} × ${R} · ${levelName(P)}`; // columns × rows
     build(); load(); renderWi(); layout(); renderAll();
     setSolved(checkSolved());
     // Older saves have no solved date: add one without changing when it was last played.
@@ -2112,33 +2200,90 @@ function whatIfHint(rows, cols, k) {
   }
 
   // ---------- new puzzle ----------
-  let size = [10, 15, 20].includes(store.get(SIZE_KEY)) ? store.get(SIZE_KEY) : 15;
+  // Sizes are columns × rows. Saved as [columns, rows]; older saves hold one number (a square).
+  const SIZE_MIN = 5, SIZE_MAX = 40;
+  const PRESETS = { "10": [10, 10], "15": [15, 15], "20": [20, 20], "20x15": [20, 15] };
+  const okSide = n => Number.isInteger(n) && n >= SIZE_MIN && n <= SIZE_MAX;
+  function readSize(v) {
+    if (typeof v === "number" && okSide(v)) return { c: v, r: v };
+    if (Array.isArray(v) && okSide(v[0]) && okSide(v[1])) return { c: v[0], r: v[1] };
+    return { c: 15, r: 15 };
+  }
+  const presetOf = sz => Object.keys(PRESETS).find(k => PRESETS[k][0] === sz.c && PRESETS[k][1] === sz.r) || null;
+  let size = readSize(store.get(SIZE_KEY));
   let level = LEVELS.includes(store.get(LEVEL_KEY)) ? store.get(LEVEL_KEY) : "easy";
   const sizeSeg = document.getElementById("sizeSeg"), levelSeg = document.getElementById("levelSeg");
-  // Sizes a level offers ("Just give up" has no 10 × 10).
-  const sizesFor = lv => LEVEL_SIZES[lv] || [10, 15, 20];
-  if (!sizesFor(level).includes(size)) size = 15;
+  const customBox = document.getElementById("customSize"), customC = document.getElementById("customC"), customR = document.getElementById("customR");
+  const customNote = document.getElementById("customNote");
+  // "Just give up" needs more than 100 cells (Hanna's choice: no 10 × 10).
+  const offered = (lv, sz) => lv !== "giveup" || sz.c * sz.r > 100;
+  if (!offered(level, size)) size = { c: 15, r: 15 };
   // The pop-up starts on the last size and level used; a choice is saved only when Make puzzle is pressed.
-  let pickSize = size, pickLevel = level;
+  // pickSize is null while the custom fields hold something that isn't a valid size.
+  let pickSize = size, pickLevel = level, custom = false;
   function renderSize() {
+    const key = custom ? "custom" : presetOf(pickSize);
     sizeSeg.querySelectorAll("button").forEach(b => {
-      b.setAttribute("aria-pressed", String(+b.dataset.size === pickSize));
-      const off = !sizesFor(pickLevel).includes(+b.dataset.size);
+      b.setAttribute("aria-pressed", String(b.dataset.size === key));
+      const pre = PRESETS[b.dataset.size];
+      const off = pre ? !offered(pickLevel, { c: pre[0], r: pre[1] }) : false;
       b.disabled = off;
-      b.title = off ? `Not offered at ${LEVEL_NAMES[pickLevel]}` : "";
+      b.title = off ? `Not offered at ${LEVEL_NAMES[pickLevel]}` : b.dataset.size === "20x15" ? "20 columns, 15 rows" : "";
     });
     levelSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === pickLevel)));
+    customBox.hidden = !custom;
+    let note = "", bad = false;
+    if (custom) {
+      if (!pickSize) { note = `Columns and rows: ${SIZE_MIN} to ${SIZE_MAX}.`; bad = true; }
+      else if (!offered(pickLevel, pickSize)) { note = `${LEVEL_NAMES[pickLevel]} needs more than 100 cells.`; bad = true; }
+      else note = `${pickSize.c} × ${pickSize.r}, about ${timeText(makeEstimate(pickSize.r, pickSize.c, pickLevel))} to make.`;
+    }
+    customNote.textContent = note;
+    customNote.classList.toggle("bad", bad);
+    newMake.disabled = !pickSize || !offered(pickLevel, pickSize);
+  }
+  function fillCustom() { customC.value = pickSize ? pickSize.c : customC.value; customR.value = pickSize ? pickSize.r : customR.value; }
+  function readCustom() {
+    const c = Number(customC.value), r = Number(customR.value);
+    pickSize = okSide(c) && okSide(r) ? { c, r } : null;
   }
   sizeSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-size]");
     if (!b) return;
-    pickSize = +b.dataset.size; renderSize();
+    if (b.dataset.size === "custom") {
+      custom = true;
+      if (!pickSize) pickSize = size;
+      fillCustom();
+    } else {
+      custom = false;
+      const [c, r] = PRESETS[b.dataset.size];
+      pickSize = { c, r };
+    }
+    renderSize();
+  });
+  customBox.addEventListener("click", e => {
+    const b = e.target.closest("button[data-step]");
+    if (!b) return;
+    const inp = b.dataset.step === "c" ? customC : customR;
+    const v = Number(inp.value);
+    inp.value = Math.min(SIZE_MAX, Math.max(SIZE_MIN, (Number.isFinite(v) ? Math.round(v) : 15) + Number(b.dataset.d)));
+    readCustom(); renderSize();
+  });
+  [customC, customR].forEach(inp => {
+    inp.addEventListener("input", () => { readCustom(); renderSize(); });
+    // Leaving a field puts an out-of-range number back inside 5 to 40.
+    inp.addEventListener("change", () => {
+      const v = Math.round(Number(inp.value));
+      inp.value = Number.isFinite(v) && inp.value !== "" ? Math.min(SIZE_MAX, Math.max(SIZE_MIN, v)) : 15;
+      readCustom(); renderSize();
+    });
   });
   levelSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-level]");
     if (!b) return;
     pickLevel = b.dataset.level;
-    if (!sizesFor(pickLevel).includes(pickSize)) pickSize = 15;
+    // A preset the level doesn't offer moves to 15 × 15; custom fields stay and show a note instead.
+    if (!custom && !offered(pickLevel, pickSize)) pickSize = { c: 15, r: 15 };
     renderSize();
   });
   function randomSeeds(n) {
@@ -2147,43 +2292,68 @@ function whatIfHint(rows, cols, k) {
     return [...a].map(x => x || 1);
   }
   // Candidates are made one at a time until one grades at the chosen level, with short pauses in
-  // between so the page stays responsive. After 2 seconds the closest one is used, labelled by its
-  // actual grade (in tests every puzzle hit its level well within that).
-  const BUDGET_MS = 2000;
-  // "Just give up" takes longer (median about 0.1s at 15 × 15 and 0.4s at 20 × 20 in tests, up to about
-  // 2s). It works in slices of 40ms; after 10 seconds the closest one so far is used.
-  const GIVEUP_BUDGET_MS = 10000, GIVEUP_GIVE_UP_MS = 30000;
+  // between so the page stays responsive. After the time limit the closest one is used, labelled by its
+  // actual grade: 2 seconds, or 5 times the expected time on big boards.
+  // "Just give up" works in slices of 40ms; after its limit (10 seconds, or 4 times the expected time)
+  // the closest one so far is used, and it stops at 30 seconds (or 8 times the expected time).
+  const budgets = (lv, est) => lv === "giveup" ? [Math.max(10000, 4 * est), Math.max(30000, 8 * est)] : [Math.max(2000, 5 * est), Infinity];
   const newBtns = [document.getElementById("newPuzzle"), document.getElementById("bannerNew")];
   let making = null;
-  function makePuzzle(N, lv, done, sync) {
-    const t0 = performance.now();
+  // Progress while making: spinner, share done and the expected total time. When it runs over, the
+  // total grows and the share stays at 90%.
+  const makingEl = document.getElementById("making"), makingText = document.getElementById("makingText");
+  function showProgress(spent, est) {
+    const total = Math.max(est, spent / 0.9), pct = Math.min(90, Math.floor(100 * spent / total));
+    makingText.textContent = `Making puzzle… ${pct}% done, takes about ${timeText(total)}`;
+    makingEl.hidden = false;
+  }
+  function endProgress() { makingEl.hidden = true; }
+  document.getElementById("makingStop").addEventListener("click", () => stopMaking());
+  function stopMaking() {
+    if (!making) return;
+    making = null;
+    newBtns.forEach(b => (b.disabled = false));
+    endProgress();
+    if (!P) openPuzzle(PUZZLES[0].id); // nothing open yet (first visit)
+  }
+  function makePuzzle(sz, lv, done, sync) {
+    const R = sz.r, C = sz.c, t0 = performance.now();
+    const est = makeEstimate(R, C, lv), [budget, limit] = budgets(lv, est);
     let best = null;
-    const gen = lv === "giveup" ? giveUpPuzzles(N, makeRng(randomSeeds(1)[0])) : null;
+    const gen = lv === "giveup" ? giveUpPuzzles(R, C, makeRng(randomSeeds(1)[0])) : null;
     const step = gen ? () => {
       const t = performance.now();
       let r;
       do { r = gen.next().value; } while (!r.done && performance.now() - t < 40);
       if (r.p) best = { p: r.p, d: r.p.d };
       const spent = performance.now() - t0;
-      return r.done || (best && spent > GIVEUP_BUDGET_MS) || spent > GIVEUP_GIVE_UP_MS;
+      return r.done || (best && spent > budget) || spent > limit;
     } : () => {
-      const c = levelCandidate(N, lv, randomSeeds(lv === "easy" ? 6 : 1));
+      const c = levelCandidate(R, C, lv, randomSeeds(lv === "easy" ? 6 : 1));
       if (c) {
-        const d = levelDistance(c.score, lv, N, N);
+        const d = levelDistance(c.score, lv, R, C);
         if (!best || d < best.d) best = { p: c, d };
       }
-      return (best && best.d === 0) || performance.now() - t0 > BUDGET_MS;
+      return (best && best.d === 0) || performance.now() - t0 > budget;
     };
-    if (sync) { while (!step()); done(best && best.p); return; }
+    // A first visit makes its puzzle straight away (nothing is open yet), unless it would take a while:
+    // then the sailing boat opens while it is made.
+    if (sync && est < 1000) { while (!step()); done(best && best.p); return; }
+    if (sync && !P) openPuzzle(PUZZLES[0].id);
     const token = making = {};
     newBtns.forEach(b => (b.disabled = true));
-    const note = setTimeout(() => setStatus("Making puzzle…"), 300);
+    // Big boards: show the progress straight away (one try can take a second or more).
+    if (est >= 300) showProgress(0, est);
     const tick = () => {
       if (making !== token) return;
-      if (!step()) { setTimeout(tick, 0); return; }
-      clearTimeout(note); making = null;
+      if (!step()) {
+        const spent = performance.now() - t0;
+        if (spent > 300) showProgress(spent, est);
+        setTimeout(tick, 0); return;
+      }
+      making = null;
       newBtns.forEach(b => (b.disabled = false));
-      if (statusEl.textContent === "Making puzzle…") setStatus("");
+      endProgress();
       done(best && best.p);
     };
     setTimeout(tick, 0);
@@ -2212,7 +2382,7 @@ function whatIfHint(rows, cols, k) {
   let newOpener = null;
   function openNewPop(e) {
     if (making) return;
-    pickSize = size; pickLevel = level; renderSize();
+    pickSize = size; pickLevel = level; custom = !presetOf(size); fillCustom(); renderSize();
     newOpener = e && e.currentTarget;
     newPop.hidden = false;
     newMake.focus();
@@ -2225,8 +2395,9 @@ function whatIfHint(rows, cols, k) {
   }
   newBtns.forEach(b => b.addEventListener("click", openNewPop));
   newMake.addEventListener("click", () => {
+    if (newMake.disabled) return;
     size = pickSize; level = pickLevel;
-    store.set(SIZE_KEY, size); store.set(LEVEL_KEY, level);
+    store.set(SIZE_KEY, [size.c, size.r]); store.set(LEVEL_KEY, level);
     newOpener = null; // focus goes to the new board, not back to the button
     closeNewPop();
     newPuzzle();
@@ -2239,10 +2410,16 @@ function whatIfHint(rows, cols, k) {
     if (newPop.hidden) return;
     if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeNewPop(); return; }
     if (e.key === "Tab") {
-      const bs = [...newPop.querySelectorAll("button:not(:disabled)")];
+      const bs = [...newPop.querySelectorAll("button:not(:disabled), input")].filter(x => x.offsetParent);
       const i = bs.indexOf(document.activeElement);
       e.preventDefault();
       bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
+    }
+    // Typing in the custom size fields works as normal (but no page shortcuts); Enter there makes the puzzle.
+    if (e.target.tagName === "INPUT" && newPop.contains(e.target)) {
+      if (e.key === "Enter") { e.preventDefault(); e.target.dispatchEvent(new Event("change")); newMake.click(); }
+      e.stopImmediatePropagation();
+      return;
     }
     if (!newPop.contains(e.target) || !["Enter", " ", "Tab"].includes(e.key)) {
       if (e.key !== "Tab") e.preventDefault();
@@ -2354,7 +2531,7 @@ function whatIfHint(rows, cols, k) {
       title.textContent = item.p.title;
       const sub = document.createElement("span");
       sub.className = "hsub";
-      const dims = `${item.p.solution.length} × ${item.p.solution[0].length} · ${levelName(item.p)}`;
+      const dims = `${item.p.solution[0].length} × ${item.p.solution.length} · ${levelName(item.p)}`; // columns × rows
       const isCur = P && item.p.id === P.id ? " · Current" : "";
       sub.textContent = item.isSolved
         ? `${dims} · Solved${item.rec.solvedAt ? " " + when(item.rec.solvedAt) : ""}${isCur}`
