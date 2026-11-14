@@ -28,6 +28,7 @@
   --ok-text: #0f7a35;
   --error-soft: rgba(196, 57, 43, 0.18);
   --hint: #2f7fc6;
+  --wi: #8a4fd8;
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
   --font-clue: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -40,7 +41,7 @@
     --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
     --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
     --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
-    --hint: #6cb4f0;
+    --hint: #6cb4f0; --wi: #b58cf5;
     color-scheme: dark;
   }
 }
@@ -49,7 +50,7 @@
   --ink: #cfe0f2; --muted: #8796a6; --fg: #e3eaf1; --accent: #e8b44c;
   --accent-soft: rgba(232, 180, 76, 0.12); --done: #4a5867; --cand-strong: #ffe2a3;
   --error: #f0705f; --ok: #2ff07a; --ok-text: #5fe08f; --error-soft: rgba(240, 112, 95, 0.22);
-  --hint: #6cb4f0;
+  --hint: #6cb4f0; --wi: #b58cf5;
   color-scheme: dark;
 }
 html { height: 100%; }
@@ -173,6 +174,31 @@ button.danger { border-color: var(--error); color: var(--error); }
   border: 4px solid transparent; border-radius: 6px; pointer-events: none; z-index: 1;
 }
 .board.all-ok .grid-frame { border-color: var(--ok); }
+/* What if ("Just give up"): tentative marks are purple; the assumption has a ring. */
+.board.wi-on .grid-frame { border: 3px dashed var(--wi); }
+.board.wi-on.all-ok .grid-frame { border: 4px solid var(--ok); }
+.cell.t1 { background: color-mix(in srgb, var(--paper) 30%, var(--wi)); }
+.cell.t2::before, .cell.t2::after {
+  content: ""; position: absolute; left: 22%; right: 22%; top: 50%; height: 2px;
+  background: var(--wi); border-radius: 1px;
+}
+.cell.t2::before { transform: rotate(45deg); }
+.cell.t2::after { transform: rotate(-45deg); }
+.cell.wa { box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 4px var(--wi); }
+/* Pop-up from the purple What if button: Keep or Discard all purple marks. Over the page, so the board keeps its size. */
+.wi-pop {
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: color-mix(in srgb, var(--fg) 28%, transparent);
+}
+.wi-card {
+  background: var(--paper); border: 1px solid var(--line); border-top: 4px solid var(--wi); border-radius: 12px;
+  padding: 14px 16px 16px; max-width: 340px; width: 100%; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.wi-card h2 { font-family: var(--font-display); font-size: 1.05rem; margin: 0 0 6px; }
+.wi-card p { margin: 0 0 14px; line-height: 1.45; color: var(--fg); }
+.wi-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.wi-actions button { flex: 1; justify-content: center; }
+#whatIfBtn[aria-pressed="true"] { background: var(--wi); border-color: var(--wi); color: #fff; }
 .board.solved .cell { cursor: default; }
 .board.solved .cell.s2::before, .board.solved .cell.s2::after { opacity: 0; transition: opacity 0.6s; }
 .board.solved .cell { border-color: var(--paper); transition: border-color 0.8s; }
@@ -270,6 +296,11 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   .actions button { justify-content: center; }
   .legend { flex-direction: column; }
   .legend > span { display: block; white-space: normal; }
+  /* Four levels: two rows of two in the side column. */
+  #levelSeg { display: grid; grid-template-columns: 1fr 1fr; }
+  #levelSeg button + button { border-left: 0; }
+  #levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
+  #levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
   .legend > span > .swatch, .legend > span > .xmark, .legend > span > .dot { margin-right: 6px; vertical-align: -1px; }
 }
 
@@ -298,6 +329,8 @@ html.focus .cclue { padding-bottom: 2px; }
 html.focus .rclue { padding-right: 3px; gap: 0.35em; }
 html.focus .hint { padding: 8px 10px 10px 12px; }
 html.focus .hint-steps { font-size: 0.88rem; }
+/* Just give up: the What if button may need a second row. */
+html.focus .toolbar { flex-wrap: wrap; }
 /* Phone on its side: controls in a narrow column beside the grid. */
 @media (orientation: landscape) {
   html.focus .wrap { max-width: none; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: start; }
@@ -337,6 +370,7 @@ html.focus .hint-steps { font-size: 0.88rem; }
         <button data-level="easy" aria-pressed="true">Easy</button>
         <button data-level="medium" aria-pressed="false">Medium</button>
         <button data-level="hard" aria-pressed="false">Hard</button>
+        <button data-level="giveup" aria-pressed="false">Just give up</button>
       </div>
     </div>
     <div class="nav-actions">
@@ -362,6 +396,7 @@ html.focus .hint-steps { font-size: 0.88rem; }
         <button id="undo" disabled>Undo</button>
         <button id="check" title="Hold to show mistakes"><span class="lbl-long">Hold to check</span><span class="lbl-short">Check</span></button>
         <button id="hintBtn" title="Hint (H)">Hint</button>
+        <button id="whatIfBtn" title="What if (W)" aria-pressed="false" hidden>What if</button>
         <button id="clearMistakes">Clear lines with mistakes</button>
         <button id="reset">Reset</button>
         <button id="zoomBtn" class="zoom-btn" aria-pressed="false" title="Bigger grid, smaller controls">
@@ -392,6 +427,17 @@ html.focus .hint-steps { font-size: 0.88rem; }
     </section>
 
     <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="wi-pop" id="wiPop" hidden>
+      <div class="wi-card" role="dialog" aria-modal="true" aria-labelledby="wiPopTitle">
+        <h2 id="wiPopTitle">End the what-if?</h2>
+        <p id="wiPopText"></p>
+        <div class="wi-actions">
+          <button id="wiKeep">Keep</button>
+          <button id="wiDiscard" class="primary">Discard</button>
+          <button id="wiCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
     <div class="solved-banner" id="banner" hidden>
       <h2 id="bannerTitle"></h2>
       <p>Solved. Your finished grid stays here until you reset it.</p>
@@ -400,7 +446,7 @@ html.focus .hint-steps { font-size: 0.88rem; }
 
     <section class="help">
       <h2>Keyboard</h2>
-      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Just give up), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
       <p><a href="https://activityworkshop.net/puzzlesgames/nonograms/tutorial.html" target="_blank" rel="noopener">How to solve a nonogram</a></p>
     </section>
   </section>
@@ -867,7 +913,7 @@ function makeHint(rows, cols, sol, cells) {
   };
   for (let r = 0; r < R; r++) consider(explainLine(rows[r], k[r], src[r], { unit: "column", name: `row ${r + 1}`, kind: "row" }), "row", r);
   for (let c = 0; c < C; c++) consider(explainLine(cols[c], k.map(row => row[c]), src.map(row => row[c]), { unit: "row", name: `column ${c + 1}`, kind: "column" }), "col", c);
-  if (!best) return null;
+  if (!best) return whatIfHint(rows, cols, k);
   const at = i => (best.axis === "row" ? { r: best.index, c: i } : { r: i, c: best.index });
   const lineKnown = best.axis === "row" ? k[best.index].slice() : k.map(row => row[best.index]);
   return {
@@ -882,13 +928,14 @@ function makeHint(rows, cols, sol, cells) {
 // The grader replays the Hint engine from an empty board: each step applies the easiest deduction
 // on the board, ranked as in Hint. A step's effort is the number of open lines divided by the lines
 // that have a deduction (how hard the next move is to find), weighted by how subtle the deduction is
-// (index = Hint rank). Score = total effort per 100 cells. Line logic alone, so every step can be hinted.
-const GRADE_WEIGHTS = [1, 1.5, 1, 2.5, 2.5, 4];
+// (index = Hint rank). Score = total effort per 100 cells. Easy to Hard need line logic alone.
+// When no line gives anything ("Just give up" puzzles), the step is a what-if, weighted WHATIF_WEIGHT.
+const GRADE_WEIGHTS = [1, 1.5, 1, 2.5, 2.5, 4], WHATIF_WEIGHT = 10;
 function gradePuzzle(rows, cols) {
   const R = rows.length, C = cols.length;
   const cells = Array.from({ length: R }, () => Array(C).fill(0));
   const cache = new Map(); // a line is only re-explained when its known cells change
-  let effort = 0, steps = 0, fallbacks = 0;
+  let effort = 0, steps = 0, fallbacks = 0, whatIfs = 0;
   for (let guard = 0; guard <= R * C; guard++) {
     const { k, src } = hintKnown(rows, cols, cells);
     let best = null, avail = 0, open = 0, axis = "", idx = 0;
@@ -904,7 +951,12 @@ function gradePuzzle(rows, cols) {
     };
     for (let r = 0; r < R; r++) look("r" + r, rows[r], k[r], src[r], { unit: "column", name: "", kind: "row" }, "r", r);
     for (let c = 0; c < C; c++) look("c" + c, cols[c], k.map(x => x[c]), src.map(x => x[c]), { unit: "row", name: "", kind: "column" }, "c", c);
-    if (!best) return { solved: open === 0, score: Math.round(effort / (R * C) * 1000) / 10, steps, fallbacks };
+    if (!best && open) {
+      // The shortest chain, as Hint picks it, so a player following hints sees the steps graded here.
+      const f = wiFind(rows, cols, Int8Array.from(k.flat()), true);
+      if (f) { whatIfs++; steps++; effort += open * WHATIF_WEIGHT; cells[f.r][f.c] = f.v ? 2 : 1; continue; }
+    }
+    if (!best) return { solved: open === 0, score: Math.round(effort / (R * C) * 1000) / 10, steps, fallbacks, whatIfs };
     effort += open / avail * GRADE_WEIGHTS[best.rank];
     steps++;
     if (best.type === "D") fallbacks++;
@@ -913,22 +965,25 @@ function gradePuzzle(rows, cols) {
       cells[r][c] = t.v ? 1 : 2;
     }
   }
-  return { solved: false, score: 0, steps, fallbacks };
+  return { solved: false, score: 0, steps, fallbacks, whatIfs };
 }
 
-const LEVELS = ["easy", "medium", "hard"];
-const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard" };
+const LEVELS = ["easy", "medium", "hard", "giveup"];
+const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Just give up" };
+// "Just give up" isn't offered at 10 × 10 (Hanna's choice).
+const LEVEL_SIZES = { giveup: [15, 20] };
 // Score bands per size [Medium from, Hard from], calibrated 12 Nov 2026 on 200 puzzles per size from
 // the original generator (now Easy): Medium starts at its 90th percentile, Hard at about 3.5 times its median.
 const LEVEL_BANDS = { 10: [80, 160], 15: [120, 220], 20: [155, 280] };
-// Picture settings for Medium and Hard: plain noise, sparser for Hard.
-const LEVEL_PICTURE = { medium: { density: 0.45, spread: 0.06 }, hard: { density: 0.39, spread: 0.06 } };
+// Picture settings for Medium, Hard and Just give up: plain noise, sparser for Hard.
+const LEVEL_PICTURE = { medium: { density: 0.45, spread: 0.06 }, hard: { density: 0.39, spread: 0.06 }, giveup: { density: 0.42, spread: 0.08 } };
 function levelBands(R, C) {
   const n = Math.max(R, C), keys = Object.keys(LEVEL_BANDS).map(Number);
   const near = keys.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
   return LEVEL_BANDS[near];
 }
-function levelOf(score, R, C) {
+function levelOf(score, R, C, whatIfs) {
+  if (whatIfs) return "giveup";
   const [m, h] = levelBands(R, C);
   return score < m ? "easy" : score < h ? "medium" : "hard";
 }
@@ -956,6 +1011,198 @@ function levelCandidate(N, level, seeds) {
   }
   const p = generatePuzzle(N, N, seeds[0], 600, LEVEL_PICTURE[level]);
   return p && graded(p);
+}
+
+// ---------- what-ifs ("Just give up") ----------
+// The hardest level needs more than line logic: at some points no row or column gives anything,
+// and you assume one cell, follow rows and columns with line logic until a line can't fit, and
+// conclude the opposite. Any length of chain is allowed. Each deduction is sound, so a puzzle that
+// these steps solve completely has exactly one solution.
+
+// Same result as solveLine, with reused flat buffers (the what-if search runs it a lot). Writes into out.
+const FL = { size: 0, len: 0 };
+function solveLineFast(clue, known, out) {
+  const n = known.length, k = clue.length, W = k + 1, need = (n + 2) * W;
+  if (FL.size < need || FL.len < n + 2) {
+    FL.size = Math.max(need, FL.size * 2, 64); FL.len = Math.max(n + 2, FL.len * 2, 32);
+    FL.can = new Uint8Array(FL.size); FL.reach = new Uint8Array(FL.size);
+    FL.zeros = new Int32Array(FL.len); FL.okEmpty = new Uint8Array(FL.len); FL.ce = new Uint8Array(FL.len); FL.diff = new Int32Array(FL.len);
+  }
+  const can = FL.can, reach = FL.reach, zeros = FL.zeros, okEmpty = FL.okEmpty, canEmpty = FL.ce, diff = FL.diff;
+  okEmpty[n] = 1;
+  for (let i = n - 1; i >= 0; i--) okEmpty[i] = okEmpty[i + 1] && known[i] !== 1 ? 1 : 0;
+  zeros[0] = 0;
+  for (let i = 0; i < n; i++) zeros[i + 1] = zeros[i] + (known[i] === 0 ? 1 : 0);
+  for (let i = n; i >= 0; i--) {
+    const b = i * W;
+    can[b + k] = okEmpty[i];
+    for (let j = k - 1; j >= 0; j--) {
+      let v = 0;
+      if (i < n && known[i] !== 1 && can[b + W + j]) v = 1;
+      if (!v) {
+        const e = i + clue[j];
+        if (e <= n && zeros[e] === zeros[i]) {
+          if (e === n) v = j === k - 1 ? 1 : 0;
+          else if (known[e] !== 1 && can[(e + 1) * W + j + 1]) v = 1;
+        }
+      }
+      can[b + j] = v;
+    }
+  }
+  if (!can[0]) return null;
+  reach.fill(0, 0, need); canEmpty.fill(0, 0, n); diff.fill(0, 0, n + 1);
+  reach[0] = 1;
+  for (let i = 0; i <= n; i++) {
+    const b = i * W;
+    for (let j = 0; j <= k; j++) {
+      if (!reach[b + j]) continue;
+      if (i < n && known[i] !== 1 && can[b + W + j]) { canEmpty[i] = 1; reach[b + W + j] = 1; }
+      if (j < k) {
+        const e = i + clue[j];
+        if (e <= n && zeros[e] === zeros[i] && (e === n ? j === k - 1 : known[e] !== 1 && can[(e + 1) * W + j + 1])) {
+          diff[i]++; diff[e]--;
+          if (e < n) { canEmpty[e] = 1; reach[(e + 1) * W + j + 1] = 1; }
+        }
+      }
+    }
+  }
+  let run = 0;
+  for (let i = 0; i < n; i++) {
+    run += diff[i];
+    const f = run > 0, em = canEmpty[i];
+    if (f && !em) out[i] = 1; else if (!f && em) out[i] = 0; else if (!f && !em) return null; else out[i] = known[i];
+  }
+  return out;
+}
+
+// Line logic on a flat grid g (Int8Array R*C: -1 unknown, 0 empty, 1 filled), starting from the given
+// rows and columns and following every change. Mutates g. Returns { ok, lines } or, when a line can't
+// fit, { ok: false, lines, clash: { axis, index } }. lines = how many line updates happened first.
+function wiPropagate(rows, cols, g, qR, qC) {
+  const R = rows.length, C = cols.length, Q = R + C;
+  const inQ = new Uint8Array(Q), q = new Int32Array(Q);
+  let h = 0, len = 0, lines = 0;
+  const push = x => { if (!inQ[x]) { inQ[x] = 1; q[(h + len) % Q] = x; len++; } };
+  qR.forEach(push); qC.forEach(c => push(R + c));
+  const buf = [], out = [];
+  while (len) {
+    const x = q[h]; h = (h + 1) % Q; len--; inQ[x] = 0;
+    const isRow = x < R, i = isRow ? x : x - R, n = isRow ? C : R;
+    buf.length = out.length = n;
+    for (let t = 0; t < n; t++) buf[t] = g[isRow ? i * C + t : t * C + i];
+    if (!solveLineFast(isRow ? rows[i] : cols[i], buf, out)) return { ok: false, lines, clash: { axis: isRow ? "row" : "col", index: i } };
+    let ch = false;
+    for (let t = 0; t < n; t++) if (out[t] !== buf[t]) {
+      g[isRow ? i * C + t : t * C + i] = out[t]; ch = true; push(isRow ? R + t : t);
+    }
+    if (ch) lines++;
+  }
+  return { ok: true, lines };
+}
+
+// A what-if on a line-closed grid: a cell and value whose assumption makes a line impossible.
+// shortest: check every cell and keep the shortest chain (for Hint); otherwise the first found.
+// Assumptions already shown to survive are skipped (whatever a surviving assumption forces survives too).
+// from: cell to start looking at (the search goes round), so the solver looks near its last what-if first.
+function wiFind(rows, cols, g, shortest, from = 0) {
+  const C = cols.length, n = g.length, safe = new Uint8Array(n * 2);
+  let best = null;
+  for (let x = 0; x < n; x++) {
+    const p = (from + x) % n;
+    if (g[p] !== -1) continue;
+    for (const v of [1, 0]) {
+      if (safe[p * 2 + v]) continue;
+      const t = g.slice(); t[p] = v;
+      const r = (p / C) | 0, c = p % C;
+      const res = wiPropagate(rows, cols, t, [r], [c]);
+      if (!res.ok) {
+        if (!best || res.lines < best.lines) best = { r, c, v, lines: res.lines, clash: res.clash };
+        if (!shortest) return best;
+        continue;
+      }
+      for (let y = 0; y < n; y++) if (g[y] === -1 && t[y] !== -1) safe[y * 2 + t[y]] = 1;
+    }
+  }
+  return best;
+}
+
+// Line logic plus what-ifs from an empty board. { solved, whatIfs, g }
+function wiSolve(rows, cols) {
+  const R = rows.length, C = cols.length, g = new Int8Array(R * C).fill(-1);
+  if (!wiPropagate(rows, cols, g, [...Array(R).keys()], [...Array(C).keys()]).ok) return { solved: false, whatIfs: 0, g };
+  let whatIfs = 0, from = 0;
+  while (g.includes(-1)) {
+    const f = wiFind(rows, cols, g, false, from);
+    if (!f) return { solved: false, whatIfs, g };
+    whatIfs++;
+    from = f.r * C + f.c;
+    g[from] = 1 - f.v;
+    if (!wiPropagate(rows, cols, g, [f.r], [f.c]).ok) return { solved: false, whatIfs, g };
+  }
+  return { solved: true, whatIfs, g };
+}
+
+// "Just give up" puzzles, one try at a time (a generator, so the page can pause between tries).
+// Plain noise; while line logic plus what-ifs can't finish, flip an unresolved cell (when line logic
+// alone leaves more than half the cells open, flip straight away: much faster, and what-ifs rarely
+// finish such a board). Kept when the number of what-ifs is inside WHATIF_RANGE; yields { done, p }
+// after each try (p: the closest so far).
+const WHATIF_RANGE = { 15: [3, 12], 20: [4, 16] };
+function* giveUpPuzzles(N, rnd) {
+  const [lo, hi] = WHATIF_RANGE[N >= 18 ? 20 : 15];
+  const pic0 = () => randomPicture(N, N, rnd, LEVEL_PICTURE.giveup);
+  let pic = pic0(), tries = 0, closest = null;
+  for (;;) {
+    tries++;
+    const rows = pic.map(clueOf), cols = [...Array(N).keys()].map(c => clueOf(pic.map(row => row[c])));
+    const fill = pic.flat().reduce((a, b) => a + b, 0) / (N * N);
+    if (fill <= 0.3 || fill >= 0.75 || tries > 600) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
+    const ls = lineSolve(rows, cols);
+    const open = ls.grid.reduce((a, row) => a + row.filter(v => v === -1).length, 0);
+    if (ls.solved) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
+    const res = open > N * N / 2 ? { solved: false, g: Int8Array.from(ls.grid.flat()) } : wiSolve(rows, cols);
+    if (res.solved) {
+      if (res.whatIfs) {
+        const g = gradePuzzle(rows, cols);
+        if (g.solved && !g.fallbacks && g.whatIfs) {
+          const p = { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), score: g.score, whatIfs: res.whatIfs, level: "giveup" };
+          const d = res.whatIfs < lo ? lo - res.whatIfs : res.whatIfs > hi ? res.whatIfs - hi : 0;
+          if (!closest || d < closest.d) closest = { ...p, d };
+          if (!d) { yield { done: true, p: closest }; return; }
+        }
+      }
+      pic = pic0(); tries = 0; yield { done: false, p: closest }; continue;
+    }
+    const unknown = [];
+    for (let i = 0; i < N * N; i++) if (res.g[i] === -1) unknown.push(i);
+    const i = unknown[Math.floor(rnd() * unknown.length)];
+    pic[(i / N) | 0][i % N] ^= 1;
+    yield { done: false, p: closest };
+  }
+}
+
+// The what-if hint, when no single row or column gives anything: the assumption with the shortest chain.
+function whatIfHint(rows, cols, k) {
+  const R = rows.length, C = cols.length, g = Int8Array.from(k.flat());
+  const f = wiFind(rows, cols, g, true);
+  if (!f) return null;
+  const T = hintText, cellName = `row ${f.r + 1}, column ${f.c + 1}`;
+  const clue = f.clash.axis === "row" ? rows[f.clash.index] : cols[f.clash.index];
+  const lineName = `${f.clash.axis === "row" ? "row" : "column"} ${f.clash.index + 1} (clue ${clue.length ? clue.join(" ") : 0})`;
+  const at = [{ r: f.r, c: f.c }];
+  return {
+    kind: "whatif", cell: { r: f.r, c: f.c }, clash: f.clash,
+    steps: [
+      { text: "No single row or column gives anything new. Time for a what-if." },
+      { text: `Turn on What if and assume the highlighted cell (${cellName}) is ${f.v ? "filled" : "empty (cross it)"}.`, stretch: at },
+      { bullets: [
+        `Follow the rows and columns from there. After ${f.lines} line${f.lines === 1 ? "" : "s"}, ${lineName} can't fit.`,
+        `So the cell must be ${f.v ? "empty" : "filled"}: tap What if, choose Discard, then ${f.v ? "cross" : "fill"} it.`
+      ], stretch: at, clashLine: true, targets: true }
+    ],
+    targets: [{ r: f.r, c: f.c, v: 1 - f.v }],
+    snapshot: g, lines: f.lines
+  };
 }
 
 (function () {
@@ -1011,7 +1258,7 @@ function levelCandidate(N, level, seeds) {
     if (LEVELS.includes(p.level)) return p.level;
     if (builtinLevels[p.id]) return builtinLevels[p.id];
     const R = p.rows.length, C = p.cols.length, g = gradePuzzle(p.rows, p.cols);
-    const lv = levelOf(g.score, R, C);
+    const lv = levelOf(g.score, R, C, g.whatIfs);
     if (generated.includes(p)) { p.level = lv; p.score = g.score; saveGenerated(); }
     else builtinLevels[p.id] = lv;
     return lv;
@@ -1021,6 +1268,11 @@ function levelCandidate(N, level, seeds) {
   // ---------- puzzle state ----------
   let P, R, C, SOL, KEY;
   let cells, cand, done = new Set(), solved = false, mode = 1, undoStack = [];
+  // What if ("Just give up" only): tentative marks (0 none, 1 filled, 2 crossed) on top of the real ones,
+  // whether the mode is on, and the assumption (the first tentative mark).
+  let tent, wiOn = false, wiAt = null;
+  const eff = (r, c) => cells[r][c] || tent[r][c];
+  const hasTent = () => tent.some(row => row.some(v => v));
   let cellEls = [], rowClueEls = [], colClueEls = [], maxCol = 1;
 
   const board = document.getElementById("board");
@@ -1041,11 +1293,18 @@ function levelCandidate(N, level, seeds) {
       cand = Array.from({ length: R }, (_, r) => [...d.cand.slice(r * C, r * C + C)].map(Number));
     }
     if (Array.isArray(d.done)) done = new Set(d.done.filter(k => typeof k === "string"));
+    if (d.wi && typeof d.tent === "string" && d.tent.length === R * C) {
+      tent = Array.from({ length: R }, (_, r) => [...d.tent.slice(r * C, r * C + C)].map(Number));
+      wiOn = true;
+      const [ar, ac] = String(d.wiAt || "").split(",").map(Number);
+      wiAt = d.wiAt && tent[ar] && tent[ar][ac] ? { r: ar, c: ac } : null;
+    }
   }
   function save() {
     const prev = store.get(KEY) || {};
     const rec = { cells: cells.flat().join(""), cand: cand.flat().map(n => Math.min(9, n)).join(""), updated: Date.now() };
     if (done.size) rec.done = [...done];
+    if (wiOn) { rec.wi = 1; rec.tent = tent.flat().join(""); if (wiAt) rec.wiAt = wiAt.r + "," + wiAt.c; }
     if (prev.solvedAt) rec.solvedAt = prev.solvedAt;
     if (solved && !rec.solvedAt) rec.solvedAt = rec.updated;
     store.set(KEY, rec);
@@ -1154,10 +1413,15 @@ function levelCandidate(N, level, seeds) {
     const el = cellEls[r][c];
     el.classList.toggle("s1", cells[r][c] === 1);
     el.classList.toggle("s2", cells[r][c] === 2);
-    const k = cells[r][c] === 0 ? cand[r][c] : 0;
+    const t = cells[r][c] === 0 ? tent[r][c] : 0;
+    el.classList.toggle("t1", t === 1);
+    el.classList.toggle("t2", t === 2);
+    el.classList.toggle("wa", !!t && !!wiAt && wiAt.r === r && wiAt.c === c);
+    const k = eff(r, c) === 0 ? cand[r][c] : 0;
     el.classList.toggle("k1", k === 1);
     el.classList.toggle("k2", k >= 2);
-    let st = ["empty", "filled", "marked empty"][cells[r][c]];
+    let st = t ? ["", "tentatively filled", "tentatively marked empty"][t] : ["empty", "filled", "marked empty"][cells[r][c]];
+    if (t && wiAt && wiAt.r === r && wiAt.c === c) st += " (the assumption)";
     if (k === 1) st += ", 1 candidate";
     else if (k >= 2) st += `, ${k} overlapping candidates`;
     el.setAttribute("aria-label", `Row ${r + 1}, column ${c + 1}, ${st}`);
@@ -1185,21 +1449,36 @@ function levelCandidate(N, level, seeds) {
     banner.hidden = !on;
     hintBtn.disabled = on;
     if (on) {
+      // Solved with real marks: any tentative marks left over go.
+      if (wiOn) { tent = Array.from({ length: R }, () => Array(C).fill(0)); wiOn = false; wiAt = null; renderAll(); }
       closeHint();
       highlight(null);
       document.getElementById("bannerTitle").textContent = `${P.title} · ${levelName(P)}`;
       setStatus("");
     }
     undoBtn.disabled = on || undoStack.length === 0;
+    renderWi();
   }
 
   // ---------- editing ----------
   let stroke = null; // {target, desired, start:{r,c}, axis, changes: Map}
   function record(r, c) {
     const key = r + "," + c;
-    if (!stroke.changes.has(key)) stroke.changes.set(key, { v: cells[r][c], k: cand[r][c] });
+    if (!stroke.changes.has(key)) stroke.changes.set(key, { v: cells[r][c], k: cand[r][c], t: tent[r][c] });
   }
   function setCell(r, c, v) {
+    if (wiOn) {
+      // What if: marks go on the tentative layer; real marks stay as they are.
+      if (cells[r][c] !== 0 || tent[r][c] === v) return;
+      stroke.wi = true;
+      const first = v && !wiAt && !hasTent();
+      record(r, c);
+      tent[r][c] = v;
+      if (first) wiAt = { r, c };
+      else if (!v && wiAt && wiAt.r === r && wiAt.c === c) wiAt = null;
+      renderCell(r, c);
+      return;
+    }
     if (cells[r][c] === v) return;
     record(r, c);
     cells[r][c] = v;
@@ -1209,20 +1488,27 @@ function levelCandidate(N, level, seeds) {
     const key = r + "," + c;
     if (stroke.touched.has(key)) return; // one layer per drag
     stroke.touched.add(key);
-    if (cells[r][c] !== 0) return;
+    if (eff(r, c) !== 0) return;
     record(r, c);
     cand[r][c] = cand[r][c] >= 2 ? 0 : cand[r][c] + 1; // marking an overlap again clears it
     renderCell(r, c);
   }
+  // Undo entries are Maps of cell changes; a what-if entry also carries wi: { at } (the assumption before),
+  // and undoing it puts What if back on.
   function restore(changes) {
+    if (changes.wi) { wiOn = true; wiAt = changes.wi.at; }
     for (const [key, p] of changes) {
       const [r, c] = key.split(",").map(Number);
-      cells[r][c] = p.v; cand[r][c] = p.k; renderCell(r, c);
+      cells[r][c] = p.v; cand[r][c] = p.k;
+      if (p.t !== undefined) tent[r][c] = p.t;
     }
+    for (const [key] of changes) { const [r, c] = key.split(",").map(Number); renderCell(r, c); }
+    if (wiAt) renderCell(wiAt.r, wiAt.c);
+    renderWi();
   }
   function applyTo(r, c, isStart) {
     if (stroke.desired === 3) { addCand(r, c); return; }
-    const cur = cells[r][c];
+    const cur = eff(r, c);
     if (stroke.target === 0) { if (cur === stroke.desired) setCell(r, c, 0); }
     else if (isStart || cur === 0) setCell(r, c, stroke.target);
   }
@@ -1235,7 +1521,7 @@ function levelCandidate(N, level, seeds) {
     return (rows.size === 1 && rows.has(r)) || (cols.size === 1 && cols.has(c));
   }
   function clearCandsOffLine(r, c) {
-    if (candInLine(r, c)) return;
+    if (wiOn || candInLine(r, c)) return; // a what-if crosses rows and columns: candidates stay
     for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) if (cand[y][x]) {
       record(y, x); cand[y][x] = 0; renderCell(y, x);
     }
@@ -1244,8 +1530,8 @@ function levelCandidate(N, level, seeds) {
     if (solved) return;
     clearErrors();
     stroke = {
-      desired, target: desired === 3 ? 3 : (cells[r][c] === desired ? 0 : desired),
-      start: { r, c }, axis: null, changes: new Map(), touched: new Set()
+      desired, target: desired === 3 ? 3 : (eff(r, c) === desired ? 0 : desired),
+      start: { r, c }, axis: null, changes: new Map(), touched: new Set(), wiAt
     };
     clearCandsOffLine(r, c);
     applyTo(r, c, true);
@@ -1271,10 +1557,14 @@ function levelCandidate(N, level, seeds) {
     if (!stroke) return;
     const changed = stroke.changes.size > 0;
     if (changed) {
-      undoStack.push(new Map(stroke.changes));
+      const entry = new Map(stroke.changes);
+      if (stroke.wi) entry.wi = { at: stroke.wiAt };
+      undoStack.push(entry);
       if (undoStack.length > 500) undoStack.shift();
     }
+    const wasWi = stroke.wi;
     stroke = null;
+    if (wasWi) renderWi();
     if (checkSolved()) {
       setSolved(true);
       // The board fills the screen, so the banner sits just below it: scroll it into view once the picture is revealed.
@@ -1343,7 +1633,8 @@ function levelCandidate(N, level, seeds) {
         restore(stroke.changes);
         stroke.changes.clear(); stroke.touched.clear();
         stroke.desired = 2;
-        stroke.target = cells[r][c] === 2 ? 0 : 2;
+        stroke.target = eff(r, c) === 2 ? 0 : 2;
+        if (stroke.wi) { wiAt = stroke.wiAt; stroke.wi = false; }
         clearCandsOffLine(r, c);
         applyTo(r, c, true);
         renderClues();
@@ -1552,7 +1843,7 @@ function levelCandidate(N, level, seeds) {
     for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
       if (!rows.has(r) && !cols.has(c)) continue;
       if (!cells[r][c] && !cand[r][c]) continue;
-      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c] });
+      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c], t: tent[r][c] });
       cells[r][c] = 0; cand[r][c] = 0;
     }
     clearErrors();
@@ -1573,6 +1864,7 @@ function levelCandidate(N, level, seeds) {
     cells = Array.from({ length: R }, () => Array(C).fill(0));
     cand = Array.from({ length: R }, () => Array(C).fill(0));
     done = new Set();
+    tent = Array.from({ length: R }, () => Array(C).fill(0)); wiOn = false; wiAt = null;
     undoStack = [];
     clearErrors(); closeHint();
     setSolved(false);
@@ -1583,6 +1875,79 @@ function levelCandidate(N, level, seeds) {
     clearTimeout(resetArmed); resetArmed = null;
     resetBtn.textContent = "Reset"; resetBtn.classList.remove("danger");
   }
+
+  // ---------- what if ("Just give up" only) ----------
+  // While What if is on, new marks are tentative (purple) and the first one is the assumption (ringed).
+  // Pressing the purple What if button again opens a pop-up: Keep makes all purple marks real, Discard
+  // removes them, Cancel stays in What if. No buttons on the page, so the board keeps its size (Hanna's
+  // choice), and no "Discard and flip". Keep and Discard are each one undo step.
+  const whatIfBtn = document.getElementById("whatIfBtn"), wiPop = document.getElementById("wiPop");
+  const wiPopText = document.getElementById("wiPopText");
+  function renderWi() {
+    if (!P) return;
+    const offered = levelFor(P) === "giveup" && !solved;
+    const btnWas = whatIfBtn.hidden;
+    whatIfBtn.hidden = !offered;
+    whatIfBtn.setAttribute("aria-pressed", String(wiOn));
+    board.classList.toggle("wi-on", wiOn);
+    if (!wiOn) closeWiPop();
+    if (btnWas !== whatIfBtn.hidden) requestAnimationFrame(layout); // toolbar height changed
+  }
+  function toggleWhatIf() {
+    if (solved || view !== "play" || levelFor(P) !== "giveup" || stroke) return;
+    if (wiOn && hasTent()) { openWiPop(); return; }
+    wiOn = !wiOn; wiAt = null;
+    setStatus("");
+    save(); renderWi();
+  }
+  function openWiPop() {
+    const n = tent.flat().filter(v => v).length;
+    const a = wiAt && tent[wiAt.r][wiAt.c] ? wiAt : null;
+    const more = a ? n - 1 : n;
+    const marks = k => `${k} purple mark${k === 1 ? "" : "s"}`;
+    wiPopText.textContent = a
+      ? `You assumed row ${a.r + 1}, column ${a.c + 1} is ${tent[a.r][a.c] === 1 ? "filled" : "empty"}${more ? `, then added ${marks(more)}` : ""}. Keep makes ${n === 1 ? "it" : "them all"} real; Discard removes ${n === 1 ? "it" : "them all"}.`
+      : `You have ${marks(n)}. Keep makes ${n === 1 ? "it" : "them all"} real; Discard removes ${n === 1 ? "it" : "them all"}.`;
+    wiPop.hidden = false;
+    document.getElementById("wiDiscard").focus();
+  }
+  function closeWiPop() {
+    if (wiPop.hidden) return;
+    wiPop.hidden = true;
+    whatIfBtn.focus();
+  }
+  // how: "keep" or "discard"
+  function endWhatIf(how) {
+    wiPop.hidden = true;
+    if (solved || !wiOn || stroke) return;
+    clearErrors();
+    const changes = new Map();
+    changes.wi = { at: wiAt };
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      const t = tent[r][c];
+      if (!t) continue;
+      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c], t });
+      if (how === "keep") cells[r][c] = t;
+      tent[r][c] = 0;
+    }
+    wiOn = false; wiAt = null;
+    if (changes.size) { undoStack.push(changes); if (undoStack.length > 500) undoStack.shift(); }
+    renderAll(); renderWi();
+    save();
+    if (checkSolved()) setSolved(true);
+    hintAfterChange();
+    undoBtn.disabled = undoStack.length === 0 || solved;
+  }
+  whatIfBtn.addEventListener("click", toggleWhatIf);
+  document.getElementById("wiKeep").addEventListener("click", () => endWhatIf("keep"));
+  document.getElementById("wiDiscard").addEventListener("click", () => endWhatIf("discard"));
+  document.getElementById("wiCancel").addEventListener("click", closeWiPop);
+  wiPop.addEventListener("pointerdown", e => { if (e.target === wiPop) closeWiPop(); }); // tap outside the card
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !wiPop.hidden) { e.preventDefault(); closeWiPop(); } });
+  document.addEventListener("keydown", e => {
+    if (view !== "play" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || !wiPop.hidden) return;
+    if (e.key.toLowerCase() === "w") { e.preventDefault(); toggleWhatIf(); }
+  });
 
   // ---------- hint ----------
   // One deduction, revealed a step at a time. Hints never mark cells. The panel closes by
@@ -1597,8 +1962,22 @@ function levelCandidate(N, level, seeds) {
   }
   function applyHintHL() {
     clearHintHL();
-    if (!hint || hint.stale || hint.h.kind !== "line") return;
+    if (!hint || hint.stale) return;
     const h = hint.h;
+    if (h.kind === "whatif") {
+      // The cell to assume; on the last step also the line that can't fit, and the cell to mark.
+      const shown = h.steps.slice(0, hint.shown);
+      const last = shown[shown.length - 1];
+      if (last.clashLine) {
+        const { axis, index } = h.clash;
+        if (axis === "row") { rowClueEls[index].classList.add("h-line"); cellEls[index].forEach(el => el.classList.add("h-line")); }
+        else { colClueEls[index].classList.add("h-line"); for (let r = 0; r < R; r++) cellEls[r][index].classList.add("h-line"); }
+      }
+      (last.stretch || []).forEach(({ r, c }) => cellEls[r][c].classList.add("h-area"));
+      if (shown.some(s => s.targets)) h.targets.forEach(({ r, c }) => cellEls[r][c].classList.add("h-target"));
+      return;
+    }
+    if (h.kind !== "line") return;
     if (h.axis === "row") { rowClueEls[h.index].classList.add("h-line"); cellEls[h.index].forEach(el => el.classList.add("h-line")); }
     else { colClueEls[h.index].classList.add("h-line"); for (let r = 0; r < R; r++) cellEls[r][h.index].classList.add("h-line"); }
     const shown = h.steps.slice(0, hint.shown);
@@ -1665,9 +2044,10 @@ function levelCandidate(N, level, seeds) {
     const h = hint.h;
     if (h.kind === "mistake") { if (!findMistakes().length) closeHint(true); return; }
     const { k } = hintKnown(P.rows, P.cols, cells);
-    const cur = h.axis === "row" ? k[h.index] : k.map(row => row[h.index]);
     if (h.targets.every(({ r, c, v }) => k[r][c] === v)) { closeHint(true); return; }
-    const changed = h.snapshot.some((v, i) => v !== -1 && cur[i] !== v) ||
+    // A what-if relies on the whole board; a line hint on its line.
+    const cur = h.kind === "whatif" ? k.flat() : h.axis === "row" ? k[h.index] : k.map(row => row[h.index]);
+    const changed = [...h.snapshot].some((v, i) => v !== -1 && cur[i] !== v) ||
       h.targets.some(({ r, c, v }) => k[r][c] !== -1 && k[r][c] !== v);
     if (changed) { hint.stale = true; renderHint(); layout(); }
   }
@@ -1705,11 +2085,12 @@ function levelCandidate(N, level, seeds) {
     cells = Array.from({ length: R }, () => Array(C).fill(0));
     cand = Array.from({ length: R }, () => Array(C).fill(0));
     done = new Set();
+    tent = Array.from({ length: R }, () => Array(C).fill(0)); wiOn = false; wiAt = null;
     undoStack = []; stroke = null; hl = null; focus = { r: 0, c: 0 };
     lastHover = null; hoverStroke = 0; armed = 0; activePointer = null;
     clearTimeout(pressTimer); disarm();
     metaEl.textContent = `No. ${P.number} · ${R} × ${C} · ${levelName(P)}`;
-    build(); load(); layout(); renderAll();
+    build(); load(); renderWi(); layout(); renderAll();
     setSolved(checkSolved());
     // Older saves have no solved date: add one without changing when it was last played.
     if (solved) {
@@ -1723,8 +2104,16 @@ function levelCandidate(N, level, seeds) {
   let size = [10, 15, 20].includes(store.get(SIZE_KEY)) ? store.get(SIZE_KEY) : 15;
   let level = LEVELS.includes(store.get(LEVEL_KEY)) ? store.get(LEVEL_KEY) : "easy";
   const sizeSeg = document.getElementById("sizeSeg"), levelSeg = document.getElementById("levelSeg");
+  // Sizes a level offers ("Just give up" has no 10 × 10).
+  const sizesFor = lv => LEVEL_SIZES[lv] || [10, 15, 20];
+  if (!sizesFor(level).includes(size)) size = 15;
   function renderSize() {
-    sizeSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.size === size)));
+    sizeSeg.querySelectorAll("button").forEach(b => {
+      b.setAttribute("aria-pressed", String(+b.dataset.size === size));
+      const off = !sizesFor(level).includes(+b.dataset.size);
+      b.disabled = off;
+      b.title = off ? `Not offered at ${LEVEL_NAMES[level]}` : "";
+    });
     levelSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === level)));
   }
   sizeSeg.addEventListener("click", e => {
@@ -1735,7 +2124,9 @@ function levelCandidate(N, level, seeds) {
   levelSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-level]");
     if (!b) return;
-    level = b.dataset.level; store.set(LEVEL_KEY, level); renderSize();
+    level = b.dataset.level; store.set(LEVEL_KEY, level);
+    if (!sizesFor(level).includes(size)) { size = 15; store.set(SIZE_KEY, size); }
+    renderSize();
   });
   function randomSeeds(n) {
     const a = new Uint32Array(n);
@@ -1746,12 +2137,23 @@ function levelCandidate(N, level, seeds) {
   // between so the page stays responsive. After 2 seconds the closest one is used, labelled by its
   // actual grade (in tests every puzzle hit its level well within that).
   const BUDGET_MS = 2000;
+  // "Just give up" takes longer (median about 0.1s at 15 × 15 and 0.4s at 20 × 20 in tests, up to about
+  // 2s). It works in slices of 40ms; after 10 seconds the closest one so far is used.
+  const GIVEUP_BUDGET_MS = 10000, GIVEUP_GIVE_UP_MS = 30000;
   const newBtns = [document.getElementById("newPuzzle"), document.getElementById("bannerNew")];
   let making = null;
   function makePuzzle(N, lv, done, sync) {
     const t0 = performance.now();
     let best = null;
-    const step = () => {
+    const gen = lv === "giveup" ? giveUpPuzzles(N, makeRng(randomSeeds(1)[0])) : null;
+    const step = gen ? () => {
+      const t = performance.now();
+      let r;
+      do { r = gen.next().value; } while (!r.done && performance.now() - t < 40);
+      if (r.p) best = { p: r.p, d: r.p.d };
+      const spent = performance.now() - t0;
+      return r.done || (best && spent > GIVEUP_BUDGET_MS) || spent > GIVEUP_GIVE_UP_MS;
+    } : () => {
       const c = levelCandidate(N, lv, randomSeeds(lv === "easy" ? 6 : 1));
       if (c) {
         const d = levelDistance(c.score, lv, N, N);
@@ -1782,7 +2184,9 @@ function levelCandidate(N, level, seeds) {
     // Patterns are numbered on their own, so a first-time visitor starts with Pattern No. 1.
     const number = Math.max(0, ...generated.map(q => q.number || 0)) + 1;
     const id = "gen-" + Date.now().toString(36) + randomSeeds(1)[0].toString(36).slice(0, 4);
-    generated.push({ id, number, title: `Pattern No. ${number}`, created: Date.now(), level: p.level, score: p.score, rows: p.rows, cols: p.cols, solution: p.solution });
+    const entry = { id, number, title: `Pattern No. ${number}`, created: Date.now(), level: p.level, score: p.score, rows: p.rows, cols: p.cols, solution: p.solution };
+    if (p.whatIfs) entry.whatIfs = p.whatIfs;
+    generated.push(entry);
     saveGenerated();
     showView("play");
     openPuzzle(id);
