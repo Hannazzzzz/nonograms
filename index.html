@@ -318,7 +318,7 @@ html.focus { touch-action: pan-x pan-y; }
 html.focus body { padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 24px max(8px, env(safe-area-inset-left, 0px)); }
 html.focus .wrap, html.focus .view, html.focus .side { gap: 8px; }
 html.focus .top, html.focus .help, html.focus .legend,
-html.focus #clearMistakes, html.focus #clearCand, html.focus #reset { display: none !important; }
+html.focus #clearMistakes, html.focus #reset { display: none !important; }
 html.focus .toolbar { flex-wrap: nowrap; gap: 6px; }
 html.focus .actions { flex-wrap: nowrap; gap: 6px; }
 html.focus .toolbar button { font-size: 0.8rem; min-height: 34px; padding: 4px 9px; gap: 4px; }
@@ -398,7 +398,6 @@ html.focus .toolbar { flex-wrap: wrap; }
         <button id="hintBtn" title="Hint (H)">Hint</button>
         <button id="whatIfBtn" title="What if (W)" aria-pressed="false" hidden>What if</button>
         <button id="clearMistakes">Clear lines with mistakes</button>
-        <button id="clearCand">Clear candidates</button>
         <button id="reset">Reset</button>
         <button id="zoomBtn" class="zoom-btn" aria-pressed="false" title="Bigger grid, smaller controls">
           <svg class="ico ico-in" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
@@ -1760,22 +1759,6 @@ function whatIfHint(rows, cols, k) {
   window.addEventListener("blur", () => { armed = 0; endHover(); });
 
   // ---------- toolbar ----------
-  document.getElementById("clearCand").addEventListener("click", () => clearAllCands());
-  function clearAllCands() {
-    if (solved) return;
-    const changes = new Map();
-    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (cand[r][c]) {
-      changes.set(r + "," + c, { v: cells[r][c], k: cand[r][c], t: tent[r][c] });
-      cand[r][c] = 0; renderCell(r, c);
-    }
-    if (changes.size) {
-      undoStack.push(changes); save();
-      undoBtn.disabled = false;
-      setStatus("Candidates cleared. Undo brings them back.");
-    } else {
-      setStatus("There are no candidates to clear.");
-    }
-  }
   undoBtn.addEventListener("click", undo);
 
   // ---------- touch: Fill / Cross / Candidate mode ----------
