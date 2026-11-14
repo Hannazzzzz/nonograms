@@ -179,7 +179,7 @@ button.danger { border-color: var(--error); color: var(--error); }
   border: 4px solid transparent; border-radius: 6px; pointer-events: none; z-index: 1;
 }
 .board.all-ok .grid-frame { border-color: var(--ok); }
-/* What if ("Just give up"): tentative marks are purple; the assumption has a ring. */
+/* What if ("Extra hard"): tentative marks are purple; the assumption has a ring. */
 .board.wi-on .grid-frame { border: 3px dashed var(--wi); }
 .board.wi-on.all-ok .grid-frame { border: 4px solid var(--ok); }
 .cell.t1 { background: color-mix(in srgb, var(--paper) 30%, var(--wi)); }
@@ -220,6 +220,8 @@ button.danger { border-color: var(--error); color: var(--error); }
 #sizeSeg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line-strong); }
 #sizeSeg button + button { border-left: 0; }
 #sizeSeg button { white-space: nowrap; }
+/* A size the level doesn't offer: white like the others, only the text greyed out (Hanna's choice). */
+#sizeSeg button:disabled { opacity: 1; background: var(--paper); color: color-mix(in srgb, var(--muted) 55%, var(--paper)); }
 @media (max-width: 420px) {
   #sizeSeg { grid-template-columns: repeat(3, 1fr); }
   #sizeSeg button[data-size="custom"] { grid-column: span 2; }
@@ -373,7 +375,7 @@ html.focus .cclue { padding-bottom: 2px; }
 html.focus .rclue { padding-right: 3px; gap: 0.35em; }
 html.focus .hint { padding: 8px 10px 10px 12px; }
 html.focus .hint-steps { font-size: 0.88rem; }
-/* Just give up: the What if button may need a second row. */
+/* Extra hard: the What if button may need a second row. */
 html.focus .toolbar { flex-wrap: wrap; }
 /* Phone on its side: controls in a narrow column beside the grid. */
 @media (orientation: landscape) {
@@ -487,8 +489,8 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button data-level="easy" aria-pressed="true">Easy</button>
           <button data-level="medium" aria-pressed="false">Medium</button>
           <button data-level="hard" aria-pressed="false">Hard</button>
-          <button data-level="giveup" aria-pressed="false">Just give up</button>
-          <button data-level="nohands" aria-pressed="false">Look mum no hands</button>
+          <button data-level="giveup" aria-pressed="false">Extra hard</button>
+          <button data-level="nohands" aria-pressed="false" title="Extra hard, with no help functions">Look mum no hands</button>
         </div>
         <div class="wi-actions">
           <button id="newMake" class="primary">Make puzzle</button>
@@ -504,7 +506,7 @@ html.focus .toolbar { flex-wrap: wrap; }
 
     <section class="help">
       <h2>Keyboard</h2>
-      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Just give up, Look mum no hands), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Extra hard, Look mum no hands), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
       <p><a href="https://activityworkshop.net/puzzlesgames/nonograms/tutorial.html" target="_blank" rel="noopener">How to solve a nonogram</a></p>
     </section>
   </section>
@@ -997,7 +999,7 @@ function makeHint(rows, cols, sol, cells, where = false) {
 // on the board, ranked as in Hint. A step's effort is the number of open lines divided by the lines
 // that have a deduction (how hard the next move is to find), weighted by how subtle the deduction is
 // (index = Hint rank). Score = total effort per 100 cells. Easy to Hard need line logic alone.
-// When no line gives anything ("Just give up" puzzles), the step is a what-if, weighted WHATIF_WEIGHT.
+// When no line gives anything ("Extra hard" puzzles), the step is a what-if, weighted WHATIF_WEIGHT.
 const GRADE_WEIGHTS = [1, 1.5, 1, 2.5, 2.5, 4], WHATIF_WEIGHT = 10;
 function gradePuzzle(rows, cols) {
   const R = rows.length, C = cols.length;
@@ -1037,8 +1039,9 @@ function gradePuzzle(rows, cols) {
 }
 
 const LEVELS = ["easy", "medium", "hard", "giveup", "nohands"];
-const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Just give up", nohands: "Look mum no hands" };
-// "Look mum no hands" (added 14 Nov 2026): Just give up puzzles with What if, but no Check and no Hint.
+// "giveup" is shown as "Extra hard" (renamed from "Just give up" 14 Nov 2026); the id stays so saved puzzles keep their level.
+const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Extra hard", nohands: "Look mum no hands" };
+// "Look mum no hands" (added 14 Nov 2026): Extra hard puzzles with What if, but no Check and no Hint.
 // Hard has no Check either; its Hint names the row of a mistake instead.
 const usesWhatIf = lv => lv === "giveup" || lv === "nohands";
 const hasCheck = lv => lv !== "hard" && lv !== "nohands";
@@ -1048,7 +1051,7 @@ const hasHint = lv => lv !== "nohands";
 // 40 added 14 Nov 2026 (custom sizes): on big boards every generator lands at much the same scores, so the
 // bands there are set so that each level's generator hits its band often enough (Hard about 1 in 5).
 const LEVEL_BANDS = { 10: [80, 160], 15: [120, 220], 20: [155, 280], 40: [265, 390] };
-// Picture settings for Medium, Hard and Just give up: plain noise, sparser for Hard.
+// Picture settings for Medium, Hard and Extra hard: plain noise, sparser for Hard.
 const LEVEL_PICTURE = { medium: { density: 0.45, spread: 0.06 }, hard: { density: 0.39, spread: 0.06 }, giveup: { density: 0.42, spread: 0.08 } };
 // Bands for any size: by the side of a square with the same number of cells, straight lines between the
 // calibrated sizes (below 10, the 10 to 15 line continued, with a floor).
@@ -1073,7 +1076,7 @@ function levelDistance(score, level, R, C) {
   return score < lo ? lo - score : score >= hi ? score - hi + 1 : 0;
 }
 // Rough time to make a puzzle in ms: [time at 400 cells, power of cells], fitted to Chromium runs (14 Nov 2026):
-// 40 × 40 means were about 0.5s Easy, 1.8s Medium, 2.7s Hard and 9s Just give up.
+// 40 × 40 means were about 0.5s Easy, 1.8s Medium, 2.7s Hard and 9s Extra hard.
 // Used for the progress shown while making, and the time limits.
 const MAKE_TIME = { easy: [60, 1.5], medium: [100, 2], hard: [250, 1.75], giveup: [430, 2.2], nohands: [430, 2.2] };
 function makeEstimate(R, C, level) {
@@ -1110,7 +1113,7 @@ function levelCandidate(R, C, level, seeds) {
   return p && graded(p);
 }
 
-// ---------- what-ifs ("Just give up") ----------
+// ---------- what-ifs ("Extra hard") ----------
 // The hardest level needs more than line logic: at some points no row or column gives anything,
 // and you assume one cell, follow rows and columns with line logic until a line can't fit, and
 // conclude the opposite. Any length of chain is allowed. Each deduction is sound, so a puzzle that
@@ -1239,7 +1242,7 @@ function wiSolve(rows, cols) {
   return { solved: true, whatIfs, g };
 }
 
-// "Just give up" puzzles, one try at a time (a generator, so the page can pause between tries).
+// "Extra hard" puzzles, one try at a time (a generator, so the page can pause between tries).
 // Plain noise; while line logic plus what-ifs can't finish, flip an unresolved cell (when line logic
 // alone leaves more than half the cells open, flip straight away: much faster, and what-ifs rarely
 // finish such a board). Kept when the number of what-ifs is inside WHATIF_RANGE; yields { done, p }
@@ -1372,7 +1375,7 @@ function whatIfHint(rows, cols, k) {
   // ---------- puzzle state ----------
   let P, R, C, SOL, KEY;
   let cells, cand, done = new Set(), solved = false, mode = 1, undoStack = [];
-  // What if ("Just give up" only): tentative marks (0 none, 1 filled, 2 crossed) on top of the real ones,
+  // What if ("Extra hard" only): tentative marks (0 none, 1 filled, 2 crossed) on top of the real ones,
   // whether the mode is on, and the assumption (the first tentative mark).
   let tent, wiOn = false, wiAt = null;
   const eff = (r, c) => cells[r][c] || tent[r][c];
@@ -1962,7 +1965,7 @@ function whatIfHint(rows, cols, k) {
     resetBtn.textContent = "Reset"; resetBtn.classList.remove("danger");
   }
 
-  // ---------- what if ("Just give up" only) ----------
+  // ---------- what if ("Extra hard" only) ----------
   // While What if is on, new marks are tentative (purple) and the first one is the assumption (ringed).
   // Pressing the purple What if button again opens a pop-up: Keep makes all purple marks real, Discard
   // removes them, Cancel stays in What if. No buttons on the page, so the board keeps its size (Hanna's
@@ -2204,7 +2207,7 @@ function whatIfHint(rows, cols, k) {
   const sizeSeg = document.getElementById("sizeSeg"), levelSeg = document.getElementById("levelSeg");
   const customBox = document.getElementById("customSize"), customC = document.getElementById("customC"), customR = document.getElementById("customR");
   const customNote = document.getElementById("customNote");
-  // "Just give up" and "Look mum no hands" need more than 100 cells (Hanna's choice: no 10 × 10).
+  // "Extra hard" and "Look mum no hands" need more than 100 cells (Hanna's choice: no 10 × 10).
   const offered = (lv, sz) => !usesWhatIf(lv) || sz.c * sz.r > 100;
   if (!offered(level, size)) size = { c: 15, r: 15 };
   // The pop-up starts on the last size and level used; a choice is saved only when Make puzzle is pressed.
@@ -2283,7 +2286,7 @@ function whatIfHint(rows, cols, k) {
   // Candidates are made one at a time until one grades at the chosen level, with short pauses in
   // between so the page stays responsive. After the time limit the closest one is used, labelled by its
   // actual grade: 2 seconds, or 5 times the expected time on big boards.
-  // "Just give up" works in slices of 40ms; after its limit (10 seconds, or 4 times the expected time)
+  // "Extra hard" works in slices of 40ms; after its limit (10 seconds, or 4 times the expected time)
   // the closest one so far is used, and it stops at 30 seconds (or 8 times the expected time).
   const budgets = (lv, est) => usesWhatIf(lv) ? [Math.max(10000, 4 * est), Math.max(30000, 8 * est)] : [Math.max(2000, 5 * est), Infinity];
   const newBtns = [document.getElementById("newPuzzle"), document.getElementById("bannerNew")];
@@ -2314,7 +2317,7 @@ function whatIfHint(rows, cols, k) {
       const t = performance.now();
       let r;
       do { r = gen.next().value; } while (!r.done && performance.now() - t < 40);
-      if (r.p) best = { p: { ...r.p, level: lv }, d: r.p.d }; // Look mum no hands: Just give up puzzles
+      if (r.p) best = { p: { ...r.p, level: lv }, d: r.p.d }; // Look mum no hands: Extra hard puzzles
       const spent = performance.now() - t0;
       return r.done || (best && spent > budget) || spent > limit;
     } : () => {
