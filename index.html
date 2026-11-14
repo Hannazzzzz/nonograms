@@ -70,10 +70,6 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; marg
 .meta { font-family: var(--font-clue); font-size: 0.8rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 
 .navbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.pick { display: inline-flex; align-items: center; gap: 8px; }
-/* Slightly narrower Size and Level buttons so the title and puzzle bar share one row on iPad portrait. */
-.navbar .seg button { padding-inline: 10px; }
-.nav-actions { display: contents; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; border-radius: 0; }
@@ -198,6 +194,18 @@ button.danger { border-color: var(--error); color: var(--error); }
 .wi-card p { margin: 0 0 14px; line-height: 1.45; color: var(--fg); }
 .wi-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .wi-actions button { flex: 1; justify-content: center; }
+/* New puzzle pop-up: size and level, then Make puzzle. Same overlay as the What if pop-up. */
+.new-card { border-top-color: var(--ink); }
+.new-card h3 { font-size: 0.8rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin: 12px 0 6px; }
+.new-card h2 + h3 { margin-top: 4px; }
+.new-card .seg { display: flex; }
+.new-card .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
+/* Four levels: two rows of two. */
+#levelSeg { display: grid; grid-template-columns: 1fr 1fr; }
+#levelSeg button + button { border-left: 0; }
+#levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
+#levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
+.new-card .wi-actions { margin-top: 16px; }
 #whatIfBtn[aria-pressed="true"] { background: var(--wi); border-color: var(--wi); color: #fff; }
 .board.solved .cell { cursor: default; }
 .board.solved .cell.s2::before, .board.solved .cell.s2::after { opacity: 0; transition: opacity 0.6s; }
@@ -280,13 +288,8 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   #playView, #historyView { grid-column: 2; grid-row: 1; }
   .top { flex-direction: column; align-items: stretch; }
   h1 { font-size: 1.35rem; }
-  .navbar .spacer { display: none; }
-  /* Size and Level as full-width rows; New puzzle and History below. */
-  .navbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .pick { display: contents; }
-  .navbar .seg { display: flex; }
-  .navbar .seg button { flex: 1; justify-content: center; padding: 8px 6px; }
-  .nav-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .navbar { flex-wrap: nowrap; }
+  .navbar button { flex: 1; justify-content: center; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .toolbar .spacer { display: none; }
   #modeSeg { flex-direction: column; }
@@ -296,11 +299,6 @@ kbd { font-family: var(--font-clue); font-size: 0.8em; border: 1px solid var(--l
   .actions button { justify-content: center; }
   .legend { flex-direction: column; }
   .legend > span { display: block; white-space: normal; }
-  /* Four levels: two rows of two in the side column. */
-  #levelSeg { display: grid; grid-template-columns: 1fr 1fr; }
-  #levelSeg button + button { border-left: 0; }
-  #levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
-  #levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
   .legend > span > .swatch, .legend > span > .xmark, .legend > span > .dot { margin-right: 6px; vertical-align: -1px; }
 }
 
@@ -358,26 +356,8 @@ html.focus .toolbar { flex-wrap: wrap; }
   </header>
 
   <nav class="navbar" aria-label="Puzzles">
-    <div class="pick">
-      <div class="seg" role="group" aria-label="Size" id="sizeSeg">
-        <button data-size="10" aria-pressed="false">10</button>
-        <button data-size="15" aria-pressed="true">15</button>
-        <button data-size="20" aria-pressed="false">20</button>
-      </div>
-    </div>
-    <div class="pick">
-      <div class="seg" role="group" aria-label="Level" id="levelSeg">
-        <button data-level="easy" aria-pressed="true">Easy</button>
-        <button data-level="medium" aria-pressed="false">Medium</button>
-        <button data-level="hard" aria-pressed="false">Hard</button>
-        <button data-level="giveup" aria-pressed="false">Just give up</button>
-      </div>
-    </div>
-    <div class="nav-actions">
-      <button id="newPuzzle" class="primary">New puzzle</button>
-      <span class="spacer"></span>
-      <button id="historyBtn">History</button>
-    </div>
+    <button id="newPuzzle" class="primary" aria-haspopup="dialog">New puzzle</button>
+    <button id="historyBtn">History</button>
   </nav>
   </div>
     <div class="toolbar" role="toolbar" aria-label="Puzzle controls">
@@ -435,6 +415,28 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button id="wiKeep">Keep</button>
           <button id="wiDiscard" class="primary">Discard</button>
           <button id="wiCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="wi-pop" id="newPop" hidden>
+      <div class="wi-card new-card" role="dialog" aria-modal="true" aria-labelledby="newPopTitle">
+        <h2 id="newPopTitle">New puzzle</h2>
+        <h3 id="sizeLbl">Size</h3>
+        <div class="seg" role="group" aria-labelledby="sizeLbl" id="sizeSeg">
+          <button data-size="10" aria-pressed="false">10 × 10</button>
+          <button data-size="15" aria-pressed="true">15 × 15</button>
+          <button data-size="20" aria-pressed="false">20 × 20</button>
+        </div>
+        <h3 id="levelLbl">Level</h3>
+        <div class="seg" role="group" aria-labelledby="levelLbl" id="levelSeg">
+          <button data-level="easy" aria-pressed="true">Easy</button>
+          <button data-level="medium" aria-pressed="false">Medium</button>
+          <button data-level="hard" aria-pressed="false">Hard</button>
+          <button data-level="giveup" aria-pressed="false">Just give up</button>
+        </div>
+        <div class="wi-actions">
+          <button id="newMake" class="primary">Make puzzle</button>
+          <button id="newCancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -2107,25 +2109,27 @@ function whatIfHint(rows, cols, k) {
   // Sizes a level offers ("Just give up" has no 10 × 10).
   const sizesFor = lv => LEVEL_SIZES[lv] || [10, 15, 20];
   if (!sizesFor(level).includes(size)) size = 15;
+  // The pop-up starts on the last size and level used; a choice is saved only when Make puzzle is pressed.
+  let pickSize = size, pickLevel = level;
   function renderSize() {
     sizeSeg.querySelectorAll("button").forEach(b => {
-      b.setAttribute("aria-pressed", String(+b.dataset.size === size));
-      const off = !sizesFor(level).includes(+b.dataset.size);
+      b.setAttribute("aria-pressed", String(+b.dataset.size === pickSize));
+      const off = !sizesFor(pickLevel).includes(+b.dataset.size);
       b.disabled = off;
-      b.title = off ? `Not offered at ${LEVEL_NAMES[level]}` : "";
+      b.title = off ? `Not offered at ${LEVEL_NAMES[pickLevel]}` : "";
     });
-    levelSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === level)));
+    levelSeg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.level === pickLevel)));
   }
   sizeSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-size]");
     if (!b) return;
-    size = +b.dataset.size; store.set(SIZE_KEY, size); renderSize();
+    pickSize = +b.dataset.size; renderSize();
   });
   levelSeg.addEventListener("click", e => {
     const b = e.target.closest("button[data-level]");
     if (!b) return;
-    level = b.dataset.level; store.set(LEVEL_KEY, level);
-    if (!sizesFor(level).includes(size)) { size = 15; store.set(SIZE_KEY, size); }
+    pickLevel = b.dataset.level;
+    if (!sizesFor(pickLevel).includes(pickSize)) pickSize = 15;
     renderSize();
   });
   function randomSeeds(n) {
@@ -2195,7 +2199,47 @@ function whatIfHint(rows, cols, k) {
     if (making) return;
     makePuzzle(size, level, addPuzzle);
   }
-  newBtns.forEach(b => b.addEventListener("click", newPuzzle));
+  const newPop = document.getElementById("newPop"), newMake = document.getElementById("newMake");
+  let newOpener = null;
+  function openNewPop(e) {
+    if (making) return;
+    pickSize = size; pickLevel = level; renderSize();
+    newOpener = e && e.currentTarget;
+    newPop.hidden = false;
+    newMake.focus();
+  }
+  function closeNewPop() {
+    if (newPop.hidden) return;
+    newPop.hidden = true;
+    if (newOpener && !newOpener.disabled && document.contains(newOpener)) newOpener.focus();
+    newOpener = null;
+  }
+  newBtns.forEach(b => b.addEventListener("click", openNewPop));
+  newMake.addEventListener("click", () => {
+    size = pickSize; level = pickLevel;
+    store.set(SIZE_KEY, size); store.set(LEVEL_KEY, level);
+    newOpener = null; // focus goes to the new board, not back to the button
+    closeNewPop();
+    newPuzzle();
+  });
+  document.getElementById("newCancel").addEventListener("click", closeNewPop);
+  newPop.addEventListener("pointerdown", e => { if (e.target === newPop) closeNewPop(); }); // tap outside the card
+  // While the pop-up is open, keys stay inside it: Escape closes it, Tab cycles through its buttons,
+  // and the page's shortcuts (Undo, H, W, Space…) are ignored.
+  document.addEventListener("keydown", e => {
+    if (newPop.hidden) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeNewPop(); return; }
+    if (e.key === "Tab") {
+      const bs = [...newPop.querySelectorAll("button:not(:disabled)")];
+      const i = bs.indexOf(document.activeElement);
+      e.preventDefault();
+      bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
+    }
+    if (!newPop.contains(e.target) || !["Enter", " ", "Tab"].includes(e.key)) {
+      if (e.key !== "Tab") e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }, true);
 
   // ---------- history ----------
   let view = "play", filter = "all";
