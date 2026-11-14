@@ -122,7 +122,10 @@ button.danger { border-color: var(--error); color: var(--error); }
   font-variant-numeric: tabular-nums; color: var(--fg); line-height: 1.15;
   transition: color 0.2s;
 }
-.cclue.ok span, .rclue.ok span { color: var(--done); }
+.cclue span, .rclue span { cursor: pointer; }
+/* Clue numbers are greyed out by tapping them (no automatic greying, 0 included); a solved board is always grey. */
+.cclue span.done, .rclue span.done,
+.board.solved .cclue span, .board.solved .rclue span { color: var(--done); }
 .cclue.hl, .rclue.hl { background: var(--accent-soft); border-radius: 4px; }
 
 .cell {
@@ -1018,7 +1021,7 @@ function levelCandidate(N, level, seeds) {
 
   // ---------- puzzle state ----------
   let P, R, C, SOL, KEY;
-  let cells, cand, solved = false, mode = 1, undoStack = [];
+  let cells, cand, done = new Set(), solved = false, mode = 1, undoStack = [];
   let cellEls = [], rowClueEls = [], colClueEls = [], maxCol = 1;
 
   const board = document.getElementById("board");
@@ -1038,16 +1041,25 @@ function levelCandidate(N, level, seeds) {
     if (typeof d.cand === "string" && d.cand.length === R * C) {
       cand = Array.from({ length: R }, (_, r) => [...d.cand.slice(r * C, r * C + C)].map(Number));
     }
+    if (Array.isArray(d.done)) done = new Set(d.done.filter(k => typeof k === "string"));
   }
   function save() {
     const prev = store.get(KEY) || {};
     const rec = { cells: cells.flat().join(""), cand: cand.flat().map(n => Math.min(9, n)).join(""), updated: Date.now() };
+    if (done.size) rec.done = [...done];
     if (prev.solvedAt) rec.solvedAt = prev.solvedAt;
     if (solved && !rec.solvedAt) rec.solvedAt = rec.updated;
     store.set(KEY, rec);
   }
 
   // ---------- build ----------
+  function clueSpan(n, key) {
+    const s = Object.assign(document.createElement("span"), { textContent: n });
+    s.dataset.k = key;
+    // A click handler makes the number a tap target, so phones don't move a tap on it onto the next cell.
+    s.addEventListener("click", () => {});
+    return s;
+  }
   function build() {
     board.innerHTML = "";
     cellEls = []; rowClueEls = []; colClueEls = [];
@@ -1058,14 +1070,14 @@ function levelCandidate(N, level, seeds) {
       d.className = "cclue";
       // An empty line shows the clue 0.
       d.setAttribute("aria-label", `Column ${c + 1}: ${norm(clue).join(", ")}`);
-      norm(clue).forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      norm(clue).forEach((n, j) => d.appendChild(clueSpan(n, "c" + c + "." + j)));
       board.appendChild(d); colClueEls.push(d);
     });
     for (let r = 0; r < R; r++) {
       const d = document.createElement("div");
       d.className = "rclue";
       d.setAttribute("aria-label", `Row ${r + 1}: ${norm(P.rows[r]).join(", ")}`);
-      norm(P.rows[r]).forEach(n => d.appendChild(Object.assign(document.createElement("span"), { textContent: n })));
+      norm(P.rows[r]).forEach((n, j) => d.appendChild(clueSpan(n, "r" + r + "." + j)));
       board.appendChild(d); rowClueEls.push(d);
       cellEls.push([]);
       for (let c = 0; c < C; c++) {
@@ -1137,14 +1149,7 @@ function levelCandidate(N, level, seeds) {
   window.addEventListener("orientationchange", () => { requestAnimationFrame(layout); setTimeout(layout, 400); });
 
   // ---------- rendering ----------
-  function runs(arr) {
-    const out = []; let n = 0;
-    for (const v of arr) { if (v === 1) n++; else if (n) { out.push(n); n = 0; } }
-    if (n) out.push(n);
-    return out.length ? out : [0];
-  }
   const norm = clue => clue.length ? clue : [0];
-  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 
   function renderCell(r, c) {
     const el = cellEls[r][c];
@@ -1158,9 +1163,10 @@ function levelCandidate(N, level, seeds) {
     else if (k >= 2) st += `, ${k} overlapping candidates`;
     el.setAttribute("aria-label", `Row ${r + 1}, column ${c + 1}, ${st}`);
   }
+  // Clues no longer grey out by themselves (too big a clue while solving): Hanna taps a clue
+  // number she has finished with to grey it out, and taps it again to undo that.
   function renderClues() {
-    for (let r = 0; r < R; r++) rowClueEls[r].classList.toggle("ok", same(runs(cells[r]), norm(P.rows[r])));
-    for (let c = 0; c < C; c++) colClueEls[c].classList.toggle("ok", same(runs(cells.map(row => row[c])), norm(P.cols[c])));
+    for (const s of board.querySelectorAll("span[data-k]")) s.classList.toggle("done", done.has(s.dataset.k));
   }
   function renderAll() {
     for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) renderCell(r, c);
@@ -1296,6 +1302,28 @@ function levelCandidate(N, level, seeds) {
     if (!el || !el.classList || !el.classList.contains("cell")) return null;
     return { r: +el.dataset.r, c: +el.dataset.c };
   }
+  // Tapping anywhere in a clue strip toggles the nearest number, so the target is bigger than the digit.
+  function clueFromPoint(t, x, y) {
+    const box = t.closest(".cclue, .rclue");
+    if (!box) return null;
+    const col = box.classList.contains("cclue");
+    let best = null, bd = Infinity;
+    for (const s of box.querySelectorAll("span")) {
+      const b = s.getBoundingClientRect();
+      const d = col ? Math.abs(y - (b.top + b.bottom) / 2) : Math.abs(x - (b.left + b.right) / 2);
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+  board.addEventListener("pointerdown", e => {
+    const s = clueFromPoint(e.target, e.clientX, e.clientY);
+    if (!s) return;
+    e.preventDefault();
+    if (solved || e.button > 0) return;
+    const k = s.dataset.k;
+    if (done.has(k)) done.delete(k); else done.add(k);
+    renderClues(); save();
+  });
   board.addEventListener("contextmenu", e => e.preventDefault());
   board.addEventListener("pointerdown", e => {
     const t = e.target.closest(".cell");
@@ -1561,6 +1589,7 @@ function levelCandidate(N, level, seeds) {
     disarm();
     cells = Array.from({ length: R }, () => Array(C).fill(0));
     cand = Array.from({ length: R }, () => Array(C).fill(0));
+    done = new Set();
     undoStack = [];
     clearErrors(); closeHint();
     setSolved(false);
@@ -1692,6 +1721,7 @@ function levelCandidate(N, level, seeds) {
     KEY = recKey(P.id);
     cells = Array.from({ length: R }, () => Array(C).fill(0));
     cand = Array.from({ length: R }, () => Array(C).fill(0));
+    done = new Set();
     undoStack = []; stroke = null; hl = null; focus = { r: 0, c: 0 };
     lastHover = null; hoverStroke = 0; armed = 0; activePointer = null;
     clearTimeout(pressTimer); disarm();
