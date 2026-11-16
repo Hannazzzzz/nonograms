@@ -1251,8 +1251,8 @@ function wiSolve(rows, cols) {
 // "Extra hard" puzzles, one try at a time (a generator, so the page can pause between tries).
 // Plain noise; while line logic plus what-ifs can't finish, flip an unresolved cell (when line logic
 // alone leaves more than half the cells open, flip straight away: much faster, and what-ifs rarely
-// finish such a board). Kept when the number of what-ifs is inside WHATIF_RANGE; yields { done, p }
-// after each try (p: the closest so far).
+// finish such a board). Kept when the number of what-ifs, counted as Hint takes them, is inside
+// WHATIF_RANGE; yields { done, p } after each try (p: the closest so far).
 const WHATIF_RANGE = { 15: [3, 12], 20: [4, 16] };
 function whatIfRange(R, C) {
   const n = Math.sqrt(R * C);
@@ -1273,12 +1273,13 @@ function* giveUpPuzzles(R, C, rnd) {
     if (ls.solved) { pic = pic0(); tries = 0; yield { done: false, p: closest }; continue; }
     const res = open > N2 / 2 ? { solved: false, g: ls.g } : wiSolve(rows, cols);
     if (res.solved) {
-      const d = res.whatIfs < lo ? lo - res.whatIfs : res.whatIfs > hi ? res.whatIfs - hi : 0;
-      // Grading is the slow part on big boards: only grade a board that would be closer than the best so far.
-      if (res.whatIfs && (!closest || d < closest.d)) {
+      // Count what-ifs as Hint and the grader do (shortest chain first), not in wiSolve's first-found order,
+      // which can be far off either way (a board that needs 1 what-if was counted as 3).
+      if (res.whatIfs) {
         const g = gradePuzzle(rows, cols);
-        if (g.solved && !g.fallbacks && g.whatIfs) {
-          const p = { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), score: g.score, whatIfs: res.whatIfs, level: "giveup" };
+        const d = g.whatIfs < lo ? lo - g.whatIfs : g.whatIfs > hi ? g.whatIfs - hi : 0;
+        if (g.solved && !g.fallbacks && g.whatIfs && (!closest || d < closest.d)) {
+          const p = { rows, cols, solution: pic.map(row => row.map(v => (v ? "#" : ".")).join("")), score: g.score, whatIfs: g.whatIfs, level: "giveup" };
           closest = { ...p, d };
           if (!d) { yield { done: true, p: closest }; return; }
         }
