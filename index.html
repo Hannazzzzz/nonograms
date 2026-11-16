@@ -457,7 +457,6 @@ html.focus .toolbar { flex-wrap: wrap; }
     </section>
 
     <div class="status" id="status" role="status" aria-live="polite"></div>
-    <div class="making" id="making" role="status" hidden><span class="spinner" aria-hidden="true"></span><span id="makingText"></span><button type="button" id="makingStop">Stop</button></div>
     <div class="wi-pop" id="wiPop" hidden>
       <div class="wi-card" role="dialog" aria-modal="true" aria-labelledby="wiPopTitle">
         <h2 id="wiPopTitle">End the what-if?</h2>
@@ -466,38 +465,6 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button id="wiKeep">Keep</button>
           <button id="wiDiscard" class="primary">Discard</button>
           <button id="wiCancel">Cancel</button>
-        </div>
-      </div>
-    </div>
-    <div class="wi-pop" id="newPop" hidden>
-      <div class="wi-card new-card" role="dialog" aria-modal="true" aria-labelledby="newPopTitle">
-        <h2 id="newPopTitle">New puzzle</h2>
-        <h3 id="sizeLbl">Size</h3>
-        <div class="seg" role="group" aria-labelledby="sizeLbl" id="sizeSeg">
-          <button data-size="10" aria-pressed="false">10 × 10</button>
-          <button data-size="15" aria-pressed="true">15 × 15</button>
-          <button data-size="20" aria-pressed="false">20 × 20</button>
-          <button data-size="20x15" aria-pressed="false" title="20 columns, 15 rows">20 × 15</button>
-          <button data-size="custom" aria-pressed="false" aria-controls="customSize">Custom</button>
-        </div>
-        <div class="custom-size" id="customSize" hidden>
-          <label for="customC">Columns</label>
-          <div class="stepper"><button data-step="c" data-d="-1" aria-label="Fewer columns">−</button><input id="customC" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="c" data-d="1" aria-label="More columns">+</button></div>
-          <label for="customR">Rows</label>
-          <div class="stepper"><button data-step="r" data-d="-1" aria-label="Fewer rows">−</button><input id="customR" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="r" data-d="1" aria-label="More rows">+</button></div>
-          <p class="custom-note" id="customNote" aria-live="polite"></p>
-        </div>
-        <h3 id="levelLbl">Level</h3>
-        <div class="seg" role="group" aria-labelledby="levelLbl" id="levelSeg">
-          <button data-level="easy" aria-pressed="true">Easy</button>
-          <button data-level="medium" aria-pressed="false">Medium</button>
-          <button data-level="hard" aria-pressed="false">Hard</button>
-          <button data-level="giveup" class="has-sub" aria-pressed="false">Extra hard<span class="lvl-sub">Needs guesses</span></button>
-          <button data-level="nohands" class="has-sub" aria-pressed="false">Look mum no hands<span class="lvl-sub">Guesses + no help functions</span></button>
-        </div>
-        <div class="wi-actions">
-          <button id="newMake" class="primary">Make puzzle</button>
-          <button id="newCancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -527,6 +494,41 @@ html.focus .toolbar { flex-wrap: wrap; }
     <ul class="hlist" id="hlist"></ul>
     <p class="empty" id="hempty" hidden></p>
   </section>
+
+  <!-- Outside #playView so they also show over History (New puzzle opens from both views). -->
+  <div class="making" id="making" role="status" hidden><span class="spinner" aria-hidden="true"></span><span id="makingText"></span><button type="button" id="makingStop">Stop</button></div>
+  <div class="wi-pop" id="newPop" hidden>
+    <div class="wi-card new-card" role="dialog" aria-modal="true" aria-labelledby="newPopTitle">
+      <h2 id="newPopTitle">New puzzle</h2>
+      <h3 id="sizeLbl">Size</h3>
+      <div class="seg" role="group" aria-labelledby="sizeLbl" id="sizeSeg">
+        <button data-size="10" aria-pressed="false">10 × 10</button>
+        <button data-size="15" aria-pressed="true">15 × 15</button>
+        <button data-size="20" aria-pressed="false">20 × 20</button>
+        <button data-size="20x15" aria-pressed="false" title="20 columns, 15 rows">20 × 15</button>
+        <button data-size="custom" aria-pressed="false" aria-controls="customSize">Custom</button>
+      </div>
+      <div class="custom-size" id="customSize" hidden>
+        <label for="customC">Columns</label>
+        <div class="stepper"><button data-step="c" data-d="-1" aria-label="Fewer columns">−</button><input id="customC" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="c" data-d="1" aria-label="More columns">+</button></div>
+        <label for="customR">Rows</label>
+        <div class="stepper"><button data-step="r" data-d="-1" aria-label="Fewer rows">−</button><input id="customR" type="number" inputmode="numeric" min="5" max="40" step="1"><button data-step="r" data-d="1" aria-label="More rows">+</button></div>
+        <p class="custom-note" id="customNote" aria-live="polite"></p>
+      </div>
+      <h3 id="levelLbl">Level</h3>
+      <div class="seg" role="group" aria-labelledby="levelLbl" id="levelSeg">
+        <button data-level="easy" aria-pressed="true">Easy</button>
+        <button data-level="medium" aria-pressed="false">Medium</button>
+        <button data-level="hard" aria-pressed="false">Hard</button>
+        <button data-level="giveup" class="has-sub" aria-pressed="false">Extra hard<span class="lvl-sub">Needs guesses</span></button>
+        <button data-level="nohands" class="has-sub" aria-pressed="false">Look mum no hands<span class="lvl-sub">Guesses + no help functions</span></button>
+      </div>
+      <div class="wi-actions">
+        <button id="newMake" class="primary">Make puzzle</button>
+        <button id="newCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
