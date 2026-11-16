@@ -215,6 +215,9 @@ button.danger { border-color: var(--error); color: var(--error); }
 #levelSeg button:nth-child(even) { border-left: 1px solid var(--line-strong); }
 #levelSeg button:nth-child(n+3) { border-top: 1px solid var(--line-strong); }
 #levelSeg button:nth-child(5) { grid-column: 1 / -1; }
+/* Extra hard and Look mum no hands: a small line under the name saying what is different (Hanna's choice over a tooltip). */
+#levelSeg button.has-sub { flex-direction: column; gap: 1px; }
+.lvl-sub { display: block; font-size: 0.72rem; font-weight: 400; line-height: 1.2; opacity: 0.75; }
 .new-card .wi-actions { margin-top: 16px; }
 /* Sizes: one row of five; on narrow screens 3 + 2 (Custom twice as wide). 1px gaps show the line colour. */
 #sizeSeg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line-strong); }
@@ -489,8 +492,8 @@ html.focus .toolbar { flex-wrap: wrap; }
           <button data-level="easy" aria-pressed="true">Easy</button>
           <button data-level="medium" aria-pressed="false">Medium</button>
           <button data-level="hard" aria-pressed="false">Hard</button>
-          <button data-level="giveup" aria-pressed="false">Extra hard</button>
-          <button data-level="nohands" aria-pressed="false" title="Extra hard, with no help functions">Look mum no hands</button>
+          <button data-level="giveup" class="has-sub" aria-pressed="false">Extra hard<span class="lvl-sub">Needs guesses</span></button>
+          <button data-level="nohands" class="has-sub" aria-pressed="false">Look mum no hands<span class="lvl-sub">Guesses + no help functions</span></button>
         </div>
         <div class="wi-actions">
           <button id="newMake" class="primary">Make puzzle</button>
