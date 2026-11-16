@@ -476,7 +476,7 @@ html.focus .toolbar { flex-wrap: wrap; }
 
     <section class="help">
       <h2>Keyboard</h2>
-      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Extra hard, Look mum no hands), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
+      <p>Arrow keys to move, <kbd>Space</kbd> to fill, <kbd>X</kbd> to mark, <kbd>C</kbd> to add a candidate, <kbd>H</kbd> for a hint, <kbd>W</kbd> for What if (Extra hard), <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo.</p>
       <p><a href="https://activityworkshop.net/puzzlesgames/nonograms/tutorial.html" target="_blank" rel="noopener">How to solve a nonogram</a></p>
     </section>
   </section>
@@ -1046,9 +1046,10 @@ function gradePuzzle(rows, cols) {
 const LEVELS = ["easy", "medium", "hard", "giveup", "nohands"];
 // "giveup" is shown as "Extra hard" (renamed from "Just give up" 14 Nov 2026); the id stays so saved puzzles keep their level.
 const LEVEL_NAMES = { easy: "Easy", medium: "Medium", hard: "Hard", giveup: "Extra hard", nohands: "Look mum no hands" };
-// "Look mum no hands" (added 14 Nov 2026): Extra hard puzzles with What if, but no Check and no Hint.
+// "Look mum no hands" (added 14 Nov 2026): Extra hard puzzles, but no Check and no Hint, and since 16 Nov 2026 no What if.
 // Hard has no Check either; its Hint names the row of a mistake instead.
-const usesWhatIf = lv => lv === "giveup" || lv === "nohands";
+const usesWhatIf = lv => lv === "giveup" || lv === "nohands"; // made by the what-if generator
+const hasWhatIf = lv => lv === "giveup"; // What if button and W key (removed from Look mum no hands 16 Nov 2026)
 const hasCheck = lv => lv !== "hard" && lv !== "nohands";
 const hasHint = lv => lv !== "nohands";
 // Score bands per size [Medium from, Hard from], calibrated 12 Nov 2026 on 200 puzzles per size from
@@ -1405,7 +1406,7 @@ function whatIfHint(rows, cols, k) {
       cand = Array.from({ length: R }, (_, r) => [...d.cand.slice(r * C, r * C + C)].map(Number));
     }
     if (Array.isArray(d.done)) done = new Set(d.done.filter(k => typeof k === "string"));
-    if (d.wi && typeof d.tent === "string" && d.tent.length === R * C) {
+    if (d.wi && typeof d.tent === "string" && d.tent.length === R * C && hasWhatIf(levelFor(P))) {
       tent = Array.from({ length: R }, (_, r) => [...d.tent.slice(r * C, r * C + C)].map(Number));
       wiOn = true;
       const [ar, ac] = String(d.wiAt || "").split(",").map(Number);
@@ -1979,7 +1980,7 @@ function whatIfHint(rows, cols, k) {
   const wiPopText = document.getElementById("wiPopText");
   function renderWi() {
     if (!P) return;
-    const lv = levelFor(P), offered = usesWhatIf(lv) && !solved;
+    const lv = levelFor(P), offered = hasWhatIf(lv) && !solved;
     const btnWas = [whatIfBtn.hidden, checkBtn.hidden, hintBtn.hidden].join();
     whatIfBtn.hidden = !offered;
     checkBtn.hidden = !hasCheck(lv); // no Check on Hard and Look mum no hands
@@ -1990,7 +1991,7 @@ function whatIfHint(rows, cols, k) {
     if (btnWas !== [whatIfBtn.hidden, checkBtn.hidden, hintBtn.hidden].join()) requestAnimationFrame(layout); // toolbar height changed
   }
   function toggleWhatIf() {
-    if (solved || view !== "play" || !usesWhatIf(levelFor(P)) || stroke) return;
+    if (solved || view !== "play" || !hasWhatIf(levelFor(P)) || stroke) return;
     if (wiOn && hasTent()) { openWiPop(); return; }
     wiOn = !wiOn; wiAt = null;
     setStatus("");
